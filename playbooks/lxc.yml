@@ -1,0 +1,67 @@
+- name: Create LXCs on Proxmox
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../inventories/home/group_vars/proxmox.yml
+    - ../inventories/home/group_vars/lxc.yml
+    - ../vault/vault.yml
+
+  tasks:
+    - name: Ensure Debian 12 template exists on Proxmox
+      ansible.builtin.shell: |
+        ssh root@{{ proxmox_api_host }} <<'EOS'
+        set -euo pipefail
+        pveam update >/dev/null
+        if ! pveam list local | grep -q debian-12; then
+          TPL=$(pveam available --section system | awk '/debian-12/ {print $2}' | head -n1)
+          echo "Downloading template: $TPL"
+          pveam download local "$TPL"
+        else
+          echo "Debian 12 template already present"
+        fi
+        EOS
+      changed_when: false
+
+    - name: Detect Debian 12 template filename
+      ansible.builtin.shell: |
+        ssh root@{{ proxmox_api_host }} "pveam list local | awk '/debian-12/ {print \$1}' | head -n1"
+      register: deb12_template
+      changed_when: false
+
+    - name: Create LXC containers
+      community.proxmox.proxmox:
+        api_host: "{{ proxmox_api_host }}"
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ vault_proxmox_token_id }}"
+        api_token_secret: "{{ vault_proxmox_token_secret }}"
+        validate_certs: "{{ proxmox_verify_ssl }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.id }}"
+        hostname: "{{ item.hostname }}"
+        ostemplate: "local:vztmpl/{{ deb12_template.stdout }}"
+        storage: local-lvm
+        disk: "{{ item.disk_gb }}"
+        cores: "{{ item.cores }}"
+        memory: "{{ item.memory }}"
+        swap: 0
+        unprivileged: true
+        onboot: true
+        netif: >
+          {"net0":"name=eth0,bridge={{ lxc_bridge }},ip={{ item.ip }},gw={{ lxc_gw }}"}
+        nameserver: "{{ lxc_dns }}"
+        pubkey: "{{ lxc_ssh_pubkey }}"
+        features: "{{ item.features | join(',') }}"
+        state: present
+      loop: "{{ lxc_map }}"
+
+    - name: Start LXCs
+      community.proxmox.proxmox:
+        api_host: "{{ proxmox_api_host }}"
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ vault_proxmox_token_id }}"
+        api_token_secret: "{{ vault_proxmox_token_secret }}"
+        validate_certs: "{{ proxmox_verify_ssl }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.id }}"
+        state: started
+      loop: "{{ lxc_map }}"

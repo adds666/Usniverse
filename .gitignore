@@ -1,0 +1,16 @@
+# Ansible vault secrets
+vault/vault.yml
+
+# Retry files
+*.retry
+
+# Python / venv
+__pycache__/
+*.pyc
+.venv/
+venv/
+venvs/
+
+# OS/editor noise
+.DS_Store
+.vscode/

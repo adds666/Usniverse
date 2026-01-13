@@ -1,0 +1,8 @@
+lxc_map:
+  - id: 110
+    hostname: edge-proxy
+    ip: 192.168.1.110/24
+    cores: 1
+    memory: 512
+    disk_gb: 8
+    features: []
