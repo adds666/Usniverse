@@ -135,4 +135,3 @@
       hostname={{ ansible_facts.hostname }}
       distro={{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
       kernel={{ ansible_facts.kernel }} {{ ansible_facts.kernel_version }}
-      applied_utc={{ ansible_date_time.iso8601 }}
