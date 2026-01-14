@@ -1,0 +1,138 @@
+---
+- name: Assert Debian 12
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == "Debian"
+      - ansible_facts.distribution == "Debian"
+      - ansible_facts.distribution_major_version | int == 12
+    fail_msg: "base_lxc is for Debian 12 LXCs only"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Upgrade system packages
+  ansible.builtin.apt:
+    upgrade: dist
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name: "{{ base_lxc_packages }}"
+    state: present
+- name: Set timezone file
+  ansible.builtin.copy:
+    dest: /etc/timezone
+    content: "{{ base_lxc_timezone }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Set /etc/localtime
+  ansible.builtin.file:
+    src: "/usr/share/zoneinfo/{{ base_lxc_timezone }}"
+    dest: /etc/localtime
+    state: link
+    force: true
+
+- name: Ensure admin user exists
+  ansible.builtin.user:
+    name: "{{ base_lxc_admin_user }}"
+    groups: "{{ base_lxc_admin_groups }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+    state: present
+- name: Enable passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ base_lxc_admin_user }}"
+    content: "{{ base_lxc_admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"
+
+- name: Install authorized SSH keys
+  ansible.builtin.authorized_key:
+    user: "{{ base_lxc_admin_user }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ base_lxc_admin_authorized_keys }}"
+  when: base_lxc_admin_authorized_keys | length > 0
+- name: Enable passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ base_lxc_admin_user }}"
+    content: "{{ base_lxc_admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"
+
+- name: Install authorized SSH keys
+  ansible.builtin.authorized_key:
+    user: "{{ base_lxc_admin_user }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ base_lxc_admin_authorized_keys }}"
+  when: base_lxc_admin_authorized_keys | length > 0
+- name: Ensure standard directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ base_lxc_directories }}"
+
+- name: Disable SSH password auth
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#\s*)?PasswordAuthentication\s+'
+    line: "PasswordAuthentication no"
+  notify: Restart ssh
+  when: base_lxc_sshd_disable_password_auth
+
+- name: Disable SSH root login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#\s*)?PermitRootLogin\s+'
+    line: "PermitRootLogin no"
+  notify: Restart ssh
+  when: base_lxc_sshd_disable_root_login
+- name: Ensure standard directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ base_lxc_directories }}"
+
+- name: Disable SSH password auth
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#\s*)?PasswordAuthentication\s+'
+    line: "PasswordAuthentication no"
+  notify: Restart ssh
+  when: base_lxc_sshd_disable_password_auth
+
+- name: Disable SSH root login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^(#\s*)?PermitRootLogin\s+'
+    line: "PermitRootLogin no"
+  notify: Restart ssh
+  when: base_lxc_sshd_disable_root_login
+- name: Write usniverse info file
+  ansible.builtin.copy:
+    dest: "{{ base_lxc_info_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      created_by=ansible
+      role=base_lxc
+      hostname={{ ansible_facts.hostname }}
+      distro={{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
+      kernel={{ ansible_facts.kernel }} {{ ansible_facts.kernel_version }}
+      applied_utc={{ ansible_date_time.iso8601 }}

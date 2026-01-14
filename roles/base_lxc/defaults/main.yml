@@ -1,0 +1,35 @@
+---
+base_lxc_admin_user: "admin"
+base_lxc_admin_groups:
+  - sudo
+
+base_lxc_admin_authorized_keys: []
+
+base_lxc_timezone: "Etc/UTC"
+base_lxc_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - sudo
+  - vim
+  - htop
+  - iproute2
+
+base_lxc_directories:
+  - path: /opt
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /srv
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /data
+    owner: root
+    group: root
+    mode: "0755"
+
+base_lxc_sshd_disable_password_auth: true
+base_lxc_sshd_disable_root_login: true
+
+base_lxc_info_file: "/etc/usniverse.info"
