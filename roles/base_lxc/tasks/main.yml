@@ -59,22 +59,6 @@
     state: present
   loop: "{{ base_lxc_admin_authorized_keys }}"
   when: base_lxc_admin_authorized_keys | length > 0
-- name: Enable passwordless sudo
-  ansible.builtin.copy:
-    dest: "/etc/sudoers.d/90-{{ base_lxc_admin_user }}"
-    content: "{{ base_lxc_admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
-    validate: "/usr/sbin/visudo -cf %s"
-
-- name: Install authorized SSH keys
-  ansible.builtin.authorized_key:
-    user: "{{ base_lxc_admin_user }}"
-    key: "{{ item }}"
-    state: present
-  loop: "{{ base_lxc_admin_authorized_keys }}"
-  when: base_lxc_admin_authorized_keys | length > 0
 - name: Ensure standard directories exist
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -115,23 +99,3 @@
     line: "PasswordAuthentication no"
   notify: Restart ssh
   when: base_lxc_sshd_disable_password_auth
-
-- name: Disable SSH root login
-  ansible.builtin.lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^(#\s*)?PermitRootLogin\s+'
-    line: "PermitRootLogin no"
-  notify: Restart ssh
-  when: base_lxc_sshd_disable_root_login
-- name: Write usniverse info file
-  ansible.builtin.copy:
-    dest: "{{ base_lxc_info_file }}"
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      created_by=ansible
-      role=base_lxc
-      hostname={{ ansible_facts.hostname }}
-      distro={{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
-      kernel={{ ansible_facts.kernel }} {{ ansible_facts.kernel_version }}
