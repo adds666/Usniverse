@@ -1,0 +1,20 @@
+---
+# Which user should be able to run docker without sudo
+docker_host_admin_user: "{{ base_lxc_admin_user | default('admin') }}"
+
+# Docker apt repo settings (Debian 12 / bookworm)
+docker_host_repo_keyring: /etc/apt/keyrings/docker.gpg
+docker_host_repo_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+
+# Packages (Docker Engine + CLI + containerd + compose plugin)
+docker_host_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Whether to allow IPv6 in docker daemon (leave false for now)
+docker_host_enable_ipv6: false

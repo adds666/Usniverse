@@ -1,0 +1,7 @@
+---
+- name: Apply docker_host to CT110 only
+  hosts: ct110
+  become: true
+  gather_facts: true
+  roles:
+    - docker_host
