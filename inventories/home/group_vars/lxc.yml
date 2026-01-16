@@ -7,6 +7,30 @@ lxc_map:
     disk_gb: 8
     features: []
 
+  - id: 111
+    hostname: jellyfin
+    ip: 192.168.1.111/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features: []
+
+  - id: 112
+    hostname: immich
+    ip: 192.168.1.112/24
+    cores: 4
+    memory: 4096
+    disk_gb: 32
+    features: []
+
+  - id: 113
+    hostname: ollama
+    ip: 192.168.1.113/24
+    cores: 4
+    memory: 8192
+    disk_gb: 32
+    features: []
+
 # --- base_lxc ---
 base_lxc_admin_user: "admin"
 base_lxc_admin_authorized_keys:
