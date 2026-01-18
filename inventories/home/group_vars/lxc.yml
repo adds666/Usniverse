@@ -31,3 +31,11 @@ lxc_map:
     memory: 8192
     disk_gb: 32
     features: []
+
+  - id: 114
+    hostname: ct114-invidious
+    features: "nesting=1,keyctl=1"
+    ip: 192.168.1.114
+    cores: 2
+    memory: 2048
+    disk_gb: 16

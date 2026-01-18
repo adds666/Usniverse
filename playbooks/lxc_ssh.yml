@@ -56,7 +56,7 @@
 
         FEATURES_ARG=""
         if [ "{{ item.item.features | length }}" -gt 0 ]; then
-          FEATURES_ARG="--features {{ item.item.features | join(',') }}"
+          FEATURES_ARG="--features {{ item.item.features }}"
         fi
 
         pct create {{ item.item.id }} "local:vztmpl/{{ deb12_tpl.stdout }}" \
@@ -65,7 +65,7 @@
           --memory {{ item.item.memory }} \
           --swap 0 \
           --rootfs "local-lvm:{{ item.item.disk_gb }}" \
-          --net0 "name=eth0,bridge={{ lxc_bridge }},ip={{ item.item.ip }},gw={{ lxc_gw }}" \
+          --net0 "name=eth0,bridge={{ lxc_bridge }},ip={{ item.item.ip }}/24,gw={{ lxc_gw }}" \
           --nameserver "{{ lxc_dns }}" \
           --unprivileged 1 \
           --onboot 1 \
