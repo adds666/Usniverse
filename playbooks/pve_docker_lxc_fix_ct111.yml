@@ -1,0 +1,35 @@
+---
+- name: Proxmox-side fixes for Docker inside unprivileged LXC (CT111)
+  hosts: pve
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure fuse kernel module is available and persistent
+      ansible.builtin.shell: |
+        set -e
+        modprobe fuse || true
+        echo fuse > /etc/modules-load.d/fuse.conf
+      args:
+        executable: /bin/bash
+
+    - name: Patch CT111 LXC config for docker
+      ansible.builtin.shell: |
+        set -e
+        CONF=/etc/pve/lxc/111.conf
+
+        grep -qxF "lxc.cgroup2.devices.allow: c 10:229 rwm" "$CONF" || echo "lxc.cgroup2.devices.allow: c 10:229 rwm" >> "$CONF"
+        grep -qxF "lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file" "$CONF" || echo "lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file" >> "$CONF"
+
+        grep -qxF "lxc.apparmor.profile: unconfined" "$CONF" || echo "lxc.apparmor.profile: unconfined" >> "$CONF"
+        grep -qxF "lxc.mount.auto: proc:rw sys:rw" "$CONF" || echo "lxc.mount.auto: proc:rw sys:rw" >> "$CONF"
+      args:
+        executable: /bin/bash
+
+    - name: Stop and start CT111 to apply config
+      ansible.builtin.shell: |
+        set -e
+        pct stop 111 || true
+        pct start 111
+      args:
+        executable: /bin/bash

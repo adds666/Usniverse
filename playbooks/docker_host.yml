@@ -1,0 +1,7 @@
+---
+- name: Apply docker_host to selected LXCs
+  hosts: lxc
+  become: true
+  gather_facts: true
+  roles:
+    - docker_host

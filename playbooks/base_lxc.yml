@@ -1,0 +1,7 @@
+---
+- name: Apply baseline to selected LXCs
+  hosts: lxc
+  become: true
+  gather_facts: true
+  roles:
+    - base_lxc

@@ -12,48 +12,48 @@
       - docker_compose_app_compose_yml is defined
       - docker_compose_app_compose_yml | length > 0
     fail_msg: "docker_compose_app_compose_yml must be provided when docker_compose_app_state=present"
-  when: docker_compose_app_state == "present"
+  when: (docker_compose_app_state | default("present")) == "present"
 
 - name: Set app directory path
   ansible.builtin.set_fact:
-    docker_compose_app_dir: "{{ docker_compose_app_root }}/{{ docker_compose_app_name }}"
+    docker_compose_app_dir: "{{ (docker_compose_app_root | default('/opt')) }}/{{ docker_compose_app_name }}"
 - name: Ensure app directory exists
   ansible.builtin.file:
     path: "{{ docker_compose_app_dir }}"
     state: directory
-    owner: "{{ docker_compose_app_owner }}"
-    group: "{{ docker_compose_app_group }}"
+    owner: "{{ docker_compose_app_owner | default('admin') }}"
+    group: "{{ docker_compose_app_group | default('admin') }}"
     mode: "0755"
-  when: docker_compose_app_state == "present"
+  when: (docker_compose_app_state | default("present")) == "present"
 
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ docker_compose_app_dir }}/docker-compose.yml"
-    owner: "{{ docker_compose_app_owner }}"
-    group: "{{ docker_compose_app_group }}"
+    owner: "{{ docker_compose_app_owner | default('admin') }}"
+    group: "{{ docker_compose_app_group | default('admin') }}"
     mode: "0644"
-  when: docker_compose_app_state == "present"
+  when: (docker_compose_app_state | default("present")) == "present"
 
 - name: Render .env (if any)
   ansible.builtin.template:
     src: env.j2
     dest: "{{ docker_compose_app_dir }}/.env"
-    owner: "{{ docker_compose_app_owner }}"
-    group: "{{ docker_compose_app_group }}"
+    owner: "{{ docker_compose_app_owner | default('admin') }}"
+    group: "{{ docker_compose_app_group | default('admin') }}"
     mode: "0600"
   when:
-    - docker_compose_app_state == "present"
+    - (docker_compose_app_state | default("present")) == "present"
     - docker_compose_app_env is defined
     - docker_compose_app_env | length > 0
 - name: Bring app up with docker compose
   ansible.builtin.command: >
-    docker compose up -d {{ docker_compose_app_compose_args }}
+    docker compose up -d {{ docker_compose_app_compose_args | default("") }}
   args:
     chdir: "{{ docker_compose_app_dir }}"
   register: docker_compose_app_up
   changed_when: "'Recreating' in docker_compose_app_up.stdout or 'Creating' in docker_compose_app_up.stdout or 'Starting' in docker_compose_app_up.stdout"
-  when: docker_compose_app_state == "present"
+  when: (docker_compose_app_state | default("present")) == "present"
 
 - name: Bring app down and remove (state=absent)
   ansible.builtin.command: docker compose down --remove-orphans
@@ -61,10 +61,10 @@
     chdir: "{{ docker_compose_app_dir }}"
   register: docker_compose_app_down
   changed_when: "'Removing' in docker_compose_app_down.stdout or 'Stopping' in docker_compose_app_down.stdout"
-  when: docker_compose_app_state == "absent"
+  when: (docker_compose_app_state | default("present")) == "absent"
 
 - name: Remove app directory (state=absent)
   ansible.builtin.file:
     path: "{{ docker_compose_app_dir }}"
     state: absent
-  when: docker_compose_app_state == "absent"
+  when: (docker_compose_app_state | default("present")) == "absent"

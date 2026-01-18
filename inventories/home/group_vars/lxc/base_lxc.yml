@@ -1,0 +1,4 @@
+---
+base_lxc_admin_user: "admin"
+base_lxc_admin_authorized_keys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEzzvPlOvh7kvkPpSRMHm7QV/qKTjWQ0/0Seq+0Nwr8g ROG Default"

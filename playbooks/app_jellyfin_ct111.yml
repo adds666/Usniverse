@@ -1,0 +1,46 @@
+---
+- name: Deploy Jellyfin on CT111 (compose-only, no data yet)
+  hosts: ct111
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Ensure host directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+      loop:
+        - /opt/jellyfin
+        - /opt/jellyfin/config
+        - /data/media
+        - /data/transcode
+
+  roles:
+    - role: docker_compose_app
+      vars:
+        docker_compose_app_name: "jellyfin"
+        docker_compose_app_owner: "admin"
+        docker_compose_app_group: "admin"
+        docker_compose_app_env:
+          PUID: "1000"
+          PGID: "1000"
+          TZ: "Europe/London"
+
+        docker_compose_app_compose_yml: |
+          services:
+            jellyfin:
+              image: lscr.io/linuxserver/jellyfin:latest
+              container_name: jellyfin
+              network_mode: host
+              environment:
+                - PUID=${PUID}
+                - PGID=${PGID}
+                - TZ=${TZ}
+              volumes:
+                - ./config:/config
+                - /data/media:/media
+                - /data/transcode:/transcode
+              restart: unless-stopped
