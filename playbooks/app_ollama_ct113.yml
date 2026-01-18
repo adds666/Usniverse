@@ -1,0 +1,24 @@
+---
+- name: Deploy Ollama on ct113 (no GPU, no model pulls)
+  hosts: ct113
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Deploy Ollama via docker_compose_app
+      ansible.builtin.include_role:
+        name: docker_compose_app
+      vars:
+        docker_compose_app_name: ollama
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_compose_yml: |
+          services:
+            ollama:
+              image: ollama/ollama:latest
+              container_name: ollama
+              ports:
+                - "11434:11434"
+              volumes:
+                - /opt/ollama/data:/root/.ollama
+              restart: unless-stopped

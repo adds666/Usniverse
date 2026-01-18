@@ -39,3 +39,11 @@ lxc_map:
     cores: 2
     memory: 2048
     disk_gb: 16
+
+  - id: 115
+    hostname: openwebui
+    ip: 192.168.1.115/24
+    cores: 2
+    memory: 4096
+    disk_gb: 16
+    features: []

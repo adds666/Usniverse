@@ -1,0 +1,27 @@
+---
+- name: Deploy Open WebUI on ct115 (separate LXC; no GPU)
+  hosts: ct115
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Deploy Open WebUI via docker_compose_app
+      ansible.builtin.include_role:
+        name: docker_compose_app
+      vars:
+        docker_compose_app_name: openwebui
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_compose_yml: |
+          services:
+            openwebui:
+              image: ghcr.io/open-webui/open-webui:main
+              container_name: openwebui
+              environment:
+                - OLLAMA_BASE_URL=http://192.168.1.113:11434
+                - ENABLE_PERSISTENT_CONFIG=false
+              ports:
+                - "3000:8080"
+              volumes:
+                - /opt/openwebui/data:/app/backend/data
+              restart: unless-stopped

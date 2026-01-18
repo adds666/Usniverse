@@ -1,9 +1,21 @@
 ---
-# Docker inside unprivileged Proxmox LXC needs fuse + relaxed confinement tweaks.
-docker_host_enable_fuse_overlayfs: true
-docker_host_disable_iptables: true
+# Where to store the Docker apt repo keyring
+docker_host_repo_keyring: /etc/apt/keyrings/docker.gpg
 
-# Proxmox LXC config tweaks for Docker-in-LXC
-docker_host_lxc_apparmor_unconfined: true
-docker_host_lxc_mount_proc_sys_rw: true
-docker_host_lxc_bind_dev_fuse: true
+# Map Ansible architecture to Docker repo arch
+docker_host_repo_arch_map:
+  x86_64: amd64
+  amd64: amd64
+  aarch64: arm64
+  arm64: arm64
+
+# Packages to install for Docker + compose plugin on Debian 12 (bookworm)
+docker_host_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Optional: add this user to the docker group
+docker_host_admin_user: admin
