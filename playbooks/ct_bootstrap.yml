@@ -1,0 +1,35 @@
+---
+- name: Bootstrap new CTs for Ansible (sudo + admin + ssh key)
+  hosts: proxmox
+  become: true
+  vars:
+    ct_ids: [116]   # <-- add new CT IDs here when needed
+  tasks:
+    - name: Read controller public key
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command: bash -lc 'cat ~/.ssh/id_ed25519.pub'
+      register: pubkey
+
+    - name: Bootstrap each CT
+      ansible.builtin.shell: |
+        set -euo pipefail
+        KEY="{{ pubkey.stdout }}"
+        pct exec {{ item }} -- bash -lc "set -euo pipefail;
+          export DEBIAN_FRONTEND=noninteractive;
+          apt-get update -y;
+          apt-get install -y sudo openssh-server;
+          systemctl enable --now ssh >/dev/null 2>&1 || systemctl enable --now sshd >/dev/null 2>&1 || true;
+          id -u admin >/dev/null 2>&1 || useradd -m -s /bin/bash admin;
+          usermod -aG sudo admin;
+          printf '%s\n' 'admin ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010-admin-nopasswd;
+          chmod 440 /etc/sudoers.d/010-admin-nopasswd;
+          install -d -m 700 /home/admin/.ssh;
+          grep -qxF \"$KEY\" /home/admin/.ssh/authorized_keys 2>/dev/null || echo \"$KEY\" >> /home/admin/.ssh/authorized_keys;
+          chown -R admin:admin /home/admin/.ssh;
+          chmod 600 /home/admin/.ssh/authorized_keys;
+          install -d -m 700 /root/.ssh;
+          grep -qxF \"$KEY\" /root/.ssh/authorized_keys 2>/dev/null || echo \"$KEY\" >> /root/.ssh/authorized_keys;
+          chmod 600 /root/.ssh/authorized_keys;
+          echo bootstrap_ok"
+      loop: "{{ ct_ids }}"
