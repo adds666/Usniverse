@@ -181,3 +181,86 @@ CT116 was used to:
 - validate ct_bootstrap.yml solves them
 - establish a repeatable pattern for future service LXCs
 
+## n8n deployment (CT116)
+
+- CT ID: 116
+- Service: n8n
+- Runtime: Docker inside unprivileged LXC
+- Compose path: /opt/n8n/docker-compose.yml
+- Data path: /opt/n8n/data  ->  /home/node/.n8n (inside container)
+- Default port: 5678
+
+The n8n container runs as user `node` (UID 1000).
+
+**Important:** the host bind-mounted data directory MUST be owned by UID 1000:
+chown -R 1000:1000 /opt/n8n/data
+If permissions are wrong, n8n will crash-loop with:
+`EACCES: permission denied, open '/home/node/.n8n/config'`.
+
+---
+
+## n8n canonical URL rule (CRITICAL)
+
+n8n **must be accessed via a single canonical URL** that matches ALL of:
+- N8N_HOST
+- N8N_EDITOR_BASE_URL
+- WEBHOOK_URL
+- N8N_PROTOCOL
+
+Mixing access paths (e.g. LAN IP + forwarded IP + HTTPS hostname) WILL break:
+- /setup
+- /signin
+- cookie handling
+- SPA routing
+
+Example failure symptom:
+- Browser shows: `Cannot GET /setup`
+
+Rule:
+> One n8n instance = one canonical URL at a time.
+
+When testing on LAN:
+- Use LAN IP in all N8N_* vars
+- Access only via LAN IP
+
+When forwarding or proxying:
+- Switch all N8N_* vars to the forwarded/proxied hostname
+- Access only via that hostname
+
+## HTTP vs HTTPS and secure cookies
+
+n8n defaults to **secure cookies**, which REQUIRE HTTPS.
+
+If accessing over HTTP (temporary / internal / port-forwarded):
+
+N8N_PROTOCOL=http
+N8N_SECURE_COOKIE=false
+
+If accessing over HTTPS (recommended, via edge proxy):
+
+N8N_PROTOCOL=https
+N8N_SECURE_COOKIE=true
+
+If misconfigured, browser error will say:
+"Your n8n server is configured to use a secure cookie..."
+
+
+
+---
+
+## Ansible / Docker gotchas encountered (n8n)
+
+1) Ansible shell defaults to /bin/sh  
+   - `set -o pipefail` will FAIL unless wrapped in:
+     ```
+     bash -lc '...'
+     ```
+
+2) Docker in unprivileged LXC requires Proxmox-side config  
+   - Handled by: playbooks/pve_docker_lxc_fix.yml
+   - CT must be STOPPED and STARTED (reboot is insufficient)
+
+3) ProxyJump must NOT apply to LAN LXCs  
+   - ProxyJump scoped to proxmox group only
+   - LXCs connect directly over LAN
+
