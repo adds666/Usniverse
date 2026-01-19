@@ -23,10 +23,6 @@ all:
           ansible_host: 192.168.1.115
           ansible_user: admin
 
-        ct116:
-          ansible_host: 192.168.1.116
-          ansible_user: admin
-
       vars:
         ansible_ssh_common_args: "-o ProxyJump=ubuntu@100.122.95.117"
 
@@ -36,3 +32,6 @@ all:
           ansible_host: 100.69.158.73
           ansible_user: root
 
+ct116:
+  ansible_host: 192.168.1.116
+  ansible_user: admin
