@@ -14,3 +14,8 @@ venvs/
 # OS/editor noise
 .DS_Store
 .vscode/
+
+# Ansible / manual backups
+inventories/_backups/
+*.bak
+*.bak.*
