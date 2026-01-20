@@ -282,3 +282,28 @@ Status at end of session:
 
 This state is considered the known-good baseline.
 No further changes should be made until edge proxy integration.
+
+---
+
+## YAML + quoting lessons (avoid repeated breakage)
+
+1) Ansible shell tasks default to /bin/sh
+- /bin/sh does NOT support: set -o pipefail
+- If you need pipefail or bash features, wrap commands with:
+  bash -lc '...'
+
+2) Avoid "sed insert with newline" inside ansible shell strings
+- The quoting/escaping frequently breaks indentation and produces invalid YAML.
+- Safer pattern: rewrite the full file deterministically with a heredoc.
+
+3) Validate compose YAML after changes
+- Always run:
+  docker compose config
+- This catches YAML errors immediately before you waste time debugging runtime issues.
+
+4) docker ps --format conflicts with Ansible Jinja
+- Docker uses Go templates like {{.Names}}
+- Ansible tries to render {{ }} as Jinja.
+- Prefer plain:
+  docker ps
+  or escape templates explicitly (ugly).
