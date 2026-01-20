@@ -1,0 +1,46 @@
+---
+- name: Deploy n8n on CT116
+  hosts: ct116
+  become: true
+  gather_facts: false
+
+  vars:
+    app_dir: /opt/n8n
+    tz: Europe/London
+
+  tasks:
+    - name: Ensure app directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ app_dir }}"
+        - "{{ app_dir }}/data"
+
+    - name: Write docker-compose.yml
+      ansible.builtin.copy:
+        dest: "{{ app_dir }}/docker-compose.yml"
+        mode: "0644"
+        content: |
+          services:
+            n8n:
+              image: docker.n8n.io/n8nio/n8n:latest
+              container_name: n8n
+              restart: unless-stopped
+              ports:
+                - "5678:5678"
+              environment:
+                - TZ={{ tz }}
+                - N8N_DIAGNOSTICS_ENABLED=false
+                - N8N_SECURE_COOKIE=false
+              volumes:
+                - {{ app_dir }}/data:/home/node/.n8n
+
+    - name: Start n8n
+      ansible.builtin.shell: |
+        set -e
+        cd "{{ app_dir }}"
+        docker compose up -d
+      args:
+        executable: /bin/bash

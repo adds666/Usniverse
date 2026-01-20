@@ -3,11 +3,6 @@
   hosts: pve
   become: true
   gather_facts: false
-  vars:
-    docker_lxc_ct_ids:
-      - 113
-      - 115
-      - 116
 
   tasks:
     - name: Ensure fuse module loaded and persistent
@@ -35,8 +30,8 @@
     - name: Restart CTs to apply config
       ansible.builtin.shell: |
         set -e
-        pct stop {{ item }} || true
-        pct start {{ item }}
+        timeout 10 pct stop {{ item }} || true
+        timeout 10 pct start {{ item }} || true
       args:
         executable: /bin/bash
       loop: "{{ docker_lxc_ct_ids }}"

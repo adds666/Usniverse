@@ -1,0 +1,11 @@
+---
+ansible_python_interpreter: /usr/bin/python3
+
+docker_lxc_ct_ids:
+  - 110
+  - 111
+  - 112
+  - 113
+  - 114
+  - 115
+  - 116
