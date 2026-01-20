@@ -264,3 +264,21 @@ If misconfigured, browser error will say:
    - ProxyJump scoped to proxmox group only
    - LXCs connect directly over LAN
 
+
+---
+
+## Verified working state (CT116)
+
+Status at end of session:
+
+- CT116 reachable via SSH as admin
+- sudo installed and passwordless for admin
+- Docker functional inside unprivileged LXC
+- docker run hello-world succeeds
+- n8n running via docker-compose
+- n8n reachable at http://192.168.1.116:5678
+- External access currently via UbuntuVM2 port forwarding
+- Edge proxy intentionally NOT configured yet
+
+This state is considered the known-good baseline.
+No further changes should be made until edge proxy integration.
