@@ -1,0 +1,4 @@
+---
+# When remote, CTs (192.168.1.x) are only reachable via jump hosts.
+# Chain: jump-vm (tailscale) -> pve (tailscale) -> CT (LAN)
+ansible_ssh_common_args: "-o ProxyJump=ubuntu@100.122.95.117,root@100.69.158.73"

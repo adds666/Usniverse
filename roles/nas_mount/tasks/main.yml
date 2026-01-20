@@ -1,0 +1,32 @@
+---
+- name: Ensure host NAS mount exists
+  ansible.builtin.raw: |
+    bash -lc 'set -e; test -d "{{ nas_host_mount_src }}" && ls -la "{{ nas_host_mount_src }}" | head'
+  changed_when: false
+
+- name: Bind-mount NAS into LXCs (idempotent)
+  ansible.builtin.raw: |
+    bash -lc '
+      set -e
+      ID="{{ item }}"
+      SRC="{{ nas_host_mount_src }}"
+      DST="{{ nas_lxc_mount_dst }}"
+
+      # If any existing mp entry already maps SRC -> DST, do nothing
+      if pct config "$ID" | grep -qF "${SRC},mp=${DST}"; then
+        echo "CT ${ID}: bind-mount already present (${SRC} -> ${DST}), skipping"
+        exit 0
+      fi
+
+      # Find next free mp index for this CT
+      USED="$(pct config "$ID" | sed -n "s/^mp\([0-9]\+\):.*/\1/p" | sort -n | tail -n 1)"
+      if [ -z "$USED" ]; then
+        IDX=0
+      else
+        IDX=$((USED+1))
+      fi
+
+      pct set "$ID" -mp${IDX} ${SRC},mp=${DST}
+      echo "CT ${ID}: set mp${IDX} ${SRC} -> ${DST}"
+    '
+  loop: "{{ nas_lxc_ct_ids }}"

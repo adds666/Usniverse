@@ -33,7 +33,7 @@ lxc_map:
     features: []
 
   - id: 114
-    hostname: ct114-invidious
+    hostname: invidious
     features: "nesting=1,keyctl=1"
     ip: 192.168.1.114
     cores: 2
@@ -58,4 +58,17 @@ lxc_map:
       - nesting=1
       - keyctl=1
 
+  - id: 117
+    hostname: synapse
+    ip: 192.168.1.117
+    cores: 1
+    memory: 1024
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
 
+
+# When remote, CTs (192.168.1.x) are only reachable via jump hosts.
+# Chain: jump-vm (tailscale) -> pve (tailscale) -> CT (LAN)
+ansible_ssh_common_args: "-o ProxyJump=ubuntu@100.122.95.117,root@100.69.158.73"

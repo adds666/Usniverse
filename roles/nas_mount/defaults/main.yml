@@ -1,0 +1,12 @@
+---
+# Host-side mount path (already mounted on Proxmox)
+nas_host_mount_src: "/mnt/pve/Global_Share"
+
+# Path that will exist *inside* each LXC
+nas_lxc_mount_dst: "/mnt/Global_Share"
+
+# CTIDs to bind-mount into (unprivileged LXCs cannot mount NFS directly)
+nas_lxc_ct_ids:
+  - 112
+  - 113
+  - 116
