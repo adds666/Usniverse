@@ -540,3 +540,14 @@ When operating remotely or over SSH with limited terminal buffers:
 
 All future handover instructions MUST follow this rule.
 
+
+### (Fix) Correct media paths this configuration provides
+With the final mounts:
+- /mnt/Global_Share/Media/Movies -> /media:ro
+- /mnt/Global_Share/Media/Music  -> /music:ro
+
+The container paths provided are:
+- /media/TV Series/...          (maps to NAS: Media/Movies/TV Series)
+- /media/Feature Film/...       (maps to NAS: Media/Movies/Feature Film)
+- /music/...                    (maps to NAS: Media/Music)
+
