@@ -551,3 +551,25 @@ The container paths provided are:
 - /media/Feature Film/...       (maps to NAS: Media/Movies/Feature Film)
 - /music/...                    (maps to NAS: Media/Music)
 
+
+---
+
+## CT111 – Startup failure after resizing (mp1 host path missing)
+
+### Symptom
+`pct start 111 --debug` failed with:
+- `Failed to run lxc.hook.pre-start`
+- `directory '/opt/jellyfin/config/cache' does not exist`
+
+### Root Cause
+CT111 had:
+- `mp1: /opt/jellyfin/config/cache,mp=/opt/jellyfin/config/cache,backup=0`
+
+The source path is on the Proxmox host. If it does not exist, the pre-start hook aborts and the container will not start.
+
+### Fix
+mp1 was removed (it was not present in IaC repo sources, only in /etc/pve/lxc/111.conf).
+
+If mp1 is ever reintroduced, ensure the host source directory exists first:
+- `mkdir -p /opt/jellyfin/config/cache`
+
