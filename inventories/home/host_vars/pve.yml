@@ -1,12 +1,3 @@
 ---
-ansible_python_interpreter: /usr/bin/python3
-
-docker_lxc_ct_ids:
-  - 117
-  - 110
-  - 111
-  - 112
-  - 113
-  - 114
-  - 115
-  - 116
+# pve must be reached via edge-proxy (ct110) over Tailscale
+ansible_ssh_common_args: "-o ProxyJump=admin@100.122.95.117"

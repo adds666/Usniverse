@@ -68,7 +68,17 @@ lxc_map:
       - nesting=1
       - keyctl=1
 
+  - id: 118
+    hostname: ombi
+    ip: 192.168.1.118
+    cores: 1
+    memory: 1024
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+
+
 
 # When remote, CTs (192.168.1.x) are only reachable via jump hosts.
 # Chain: jump-vm (tailscale) -> pve (tailscale) -> CT (LAN)
-ansible_ssh_common_args: "-o ProxyJump=ubuntu@100.122.95.117,root@100.69.158.73"
