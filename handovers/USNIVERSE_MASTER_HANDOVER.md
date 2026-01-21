@@ -14,10 +14,11 @@
 ### 0.1 Operational rules (do not break)
 1. **CLI only**: do not use nano/vim/editors or Proxmox UI clicking in instructions.  
 2. **Commands must be provided in a single unbroken code block** (ChatGPT UI truncation/buffer issues).  
-3. **Assume remote execution** unless explicitly stated.  
-4. **Idempotency first**: check before mutating state.  
-5. **Proxmox is authoritative** for mounts, backups, snapshots.  
-6. **One service per LXC** (separation of concerns).
+3. **Terminal buffer friendly (especially when remote)**: prefer **small, paste-safe command chunks** (each chunk self-contained) over one massive block; avoid long heredocs unless explicitly requested.
+4. **Assume remote execution** unless explicitly stated.  
+5. **Idempotency first**: check before mutating state.  
+6. **Proxmox is authoritative** for mounts, backups, snapshots.  
+7. **One service per LXC** (separation of concerns).
 
 ### 0.2 Design constraints (non-negotiable)
 1. **LXCs (not VMs)**
