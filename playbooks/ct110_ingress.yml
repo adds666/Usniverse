@@ -1,0 +1,54 @@
+---
+- name: CT110 ingress (iptables DNAT + forward + persistence)
+  hosts: ct110
+  become: true
+  gather_facts: false
+
+  vars:
+    # External port on CT110 -> internal LAN destination (host:port)
+    dnat_rules:
+      - { ext_port: 8096, dst_host: "192.168.1.111", dst_port: 8096, desc: "Jellyfin" }
+      - { ext_port: 3579, dst_host: "192.168.1.118", dst_port: 3579, desc: "Ombi" }
+      - { ext_port: 8008, dst_host: "192.168.1.117", dst_port: 8008, desc: "Synapse" }
+      - { ext_port: 5678, dst_host: "192.168.1.116", dst_port: 5678, desc: "n8n" }
+      - { ext_port: 8081, dst_host: "192.168.1.115", dst_port: 3000, desc: "OpenWebUI" }
+      - { ext_port: 11435, dst_host: "192.168.1.113", dst_port: 11434, desc: "Ollama" }
+      - { ext_port: 4000, dst_host: "192.168.1.114", dst_port: 3000, desc: "Invidious" }
+
+  tasks:
+    - name: Ensure DNAT + FORWARD rules exist (idempotent)
+      ansible.builtin.shell: |
+        set -euo pipefail
+
+        EXT="{{ item.ext_port }}"
+        DST_HOST="{{ item.dst_host }}"
+        DST_PORT="{{ item.dst_port }}"
+
+        # DNAT incoming TCP EXT -> DST_HOST:DST_PORT
+        iptables -t nat -C PREROUTING -p tcp --dport "${EXT}" -j DNAT --to-destination "${DST_HOST}:${DST_PORT}" 2>/dev/null           || iptables -t nat -A PREROUTING -p tcp --dport "${EXT}" -j DNAT --to-destination "${DST_HOST}:${DST_PORT}"
+
+        # Allow forward NEW/ESTABLISHED to destination
+        iptables -C FORWARD -p tcp -d "${DST_HOST}" --dport "${DST_PORT}" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT 2>/dev/null           || iptables -A FORWARD -p tcp -d "${DST_HOST}" --dport "${DST_PORT}" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+
+        # Allow return traffic
+        iptables -C FORWARD -p tcp -s "${DST_HOST}" --sport "${DST_PORT}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null           || iptables -A FORWARD -p tcp -s "${DST_HOST}" --sport "${DST_PORT}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      args:
+        executable: /bin/bash
+      loop: "{{ dnat_rules }}"
+      loop_control:
+        label: "{{ item.ext_port }} -> {{ item.dst_host }}:{{ item.dst_port }} ({{ item.desc }})"
+
+    - name: Persist iptables rules if netfilter-persistent exists
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if command -v netfilter-persistent >/dev/null 2>&1; then
+          netfilter-persistent save
+          echo "OK: saved via netfilter-persistent"
+        elif [ -d /etc/iptables ] && command -v iptables-save >/dev/null 2>&1; then
+          iptables-save > /etc/iptables/rules.v4
+          echo "OK: saved to /etc/iptables/rules.v4"
+        else
+          echo "WARN: no persistence mechanism found (install iptables-persistent to persist across reboot)"
+        fi
+      args:
+        executable: /bin/bash
