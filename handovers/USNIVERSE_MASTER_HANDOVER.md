@@ -466,3 +466,77 @@ Prefer:
 
 # END
 This file is the canonical handover for Usniverse.
+
+---
+
+## Jellyfin – Playback Failure Root Cause & Fix (CT111)
+
+### Symptoms
+- Jellyfin UI loads
+- Libraries visible
+- Playback fails immediately
+- Logs show ffmpeg errors (e.g. “FFmpeg exited with code 254” and/or “No such file or directory”)
+
+### Root Cause
+This was NOT an ffmpeg, permissions, or transcode issue.
+
+It was a PATH MISMATCH between Jellyfin library paths and the actual NAS directory layout.
+
+Actual NAS layout:
+- /mnt/Global_Share/Media/
+  - Movies/
+    - Feature Film/
+    - TV Series/
+  - Music/
+
+Broken configuration (old):
+- Mounted /mnt/Global_Share/Media -> /media
+- Jellyfin TV library pointed at /media/TV Series
+- But /media/TV Series does NOT exist
+- Actual TV path was /media/Movies/TV Series
+
+Result:
+- Jellyfin tried to play files at /media/TV Series/... that were not present
+- ffmpeg then fails opening input (looks like “ffmpeg problem”, but it’s just wrong paths)
+
+### Correct & Durable Fix
+Mount directories to match Jellyfin’s expected library paths.
+Do NOT use nested mounts or symlinks as the permanent solution.
+
+Final container mounts (read-only):
+- /mnt/Global_Share/Media/Movies -> /media:ro
+- /mnt/Global_Share/Media/Music  -> /music:ro
+
+This provides:
+- /media/TV Series/... ✅
+- /media/Feature Film/... ✅
+- /music/... ✅
+
+### Explicit Warnings (Do NOT Do This)
+- Do NOT mount /mnt/Global_Share/Media directly to /media if Jellyfin expects /media/TV Series
+- Do NOT mount a subpath into a directory that is already a read-only mount (Docker cannot create mountpoints inside RO FS)
+- Do NOT rely on symlinks inside read-only mounts except as a temporary diagnostic step
+
+### Verification Commands (remote-safe)
+- docker exec jellyfin ls -lah /media
+- docker exec jellyfin ls -lah "/media/TV Series"
+- docker exec jellyfin ls -lah "/media/Feature Film"
+- docker exec jellyfin ls -lah /music
+- docker logs jellyfin --tail=200
+
+Playback should succeed immediately after container recreation.
+
+---
+
+## Operational Rule – Remote / Buffer-Safe CLI Usage (MANDATORY)
+
+When operating remotely or over SSH with limited terminal buffers:
+
+- Use single, self-contained command blocks
+- Do NOT use interactive editors (nano/vi)
+- Avoid complex nested quoting; prefer robust patterns (e.g. env vars, simple awk extraction)
+- Prefer Python+YAML for deterministic config edits
+- Avoid nested mounts and implicit directory creation inside containers
+
+All future handover instructions MUST follow this rule.
+
