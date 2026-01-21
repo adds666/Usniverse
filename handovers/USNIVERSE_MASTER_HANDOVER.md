@@ -240,6 +240,7 @@ Exposed on CT110’s Tailscale IP (`100.122.95.117`):
 | 5678 | `192.168.1.116:5678` | n8n |
 | 8081 | `192.168.1.115:3000` | OpenWebUI (NOT :8080) |
 | 11435 | `192.168.1.113:11434` | Ollama |
+| 4000 | `192.168.1.114:3000` | Invidious |
 
 ### 9.3 Verification pattern
 Use:
