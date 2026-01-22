@@ -1,0 +1,49 @@
+---
+- name: Update all Docker Compose projects on Docker LXCs
+  hosts: docker_lxcs
+  become: true
+  gather_facts: false
+
+  vars:
+    compose_roots:
+      - /opt
+      - /home
+      - /srv
+      - /var/lib
+
+  tasks:
+    - name: Skip if docker not installed
+      ansible.builtin.shell: "command -v docker >/dev/null 2>&1"
+      register: docker_present
+      changed_when: false
+      failed_when: false
+
+    - name: Find compose files
+      ansible.builtin.shell: |
+        set -euo pipefail
+        for r in {{ compose_roots | join(' ') }}; do
+          [ -d "$r" ] || continue
+          find "$r" -xdev -type f \( -name docker-compose.yml -o -name docker-compose.yaml -o -name compose.yml -o -name compose.yaml \) \
+            -not -path "*/.git/*" -not -path "*/node_modules/*" -not -path "*/proc/*" -not -path "*/sys/*" -not -path "*/dev/*" 2>/dev/null
+        done | sort -u
+      register: compose_find
+      changed_when: false
+      failed_when: false
+      when: docker_present.rc == 0
+
+    - name: Update each compose project (pull + up)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        d="$(dirname "{{ item }}")"
+        echo "--- updating in: $d"
+        cd "$d"
+        docker compose pull
+        docker compose up -d --remove-orphans
+      loop: "{{ compose_find.stdout_lines | default([]) }}"
+      when:
+        - docker_present.rc == 0
+        - (compose_find.stdout | default('') | length) > 0
+
+    - name: Prune dangling images
+      ansible.builtin.shell: "docker image prune -f"
+      when: docker_present.rc == 0
