@@ -403,6 +403,82 @@ A Jellyfin backup hung for many hours due to:
 **Failure:** Cannot GET /setup, cookie/security errors  
 **Fix:** one canonical URL; set N8N_* accordingly; disable secure cookie on HTTP.
 
+### 12.8 Homepage NAS disk widget (“API error” / “Drive not found”)
+
+**Symptom**
+- Homepage web UI shows an API error or empty values for the NAS disk widget.
+- Logs contain repeated warnings:
+warn: <resources> Drive not found for target: /home/ubuntu/Global_Share
+
+
+**Root cause (IMPORTANT)**
+This was caused by confusing a **Proxmox Storage definition** with an **active Linux filesystem mount**.
+
+- Seeing `Global_Share` under *Datacenter → Storage* in the Proxmox UI **does NOT guarantee** that
+`/mnt/pve/Global_Share` is mounted at all times on the host.
+- Proxmox may mount NFS storage **on demand** (e.g. during backups) and unmount it afterwards.
+- Homepage’s Resources/Disk widget does a normal Linux filesystem check on the target path inside the container.
+If the path is just an empty directory (not an NFS mount), Homepage cannot map it to a drive and warns.
+
+**Canonical working configuration (CURRENT – do not diverge)**
+
+- Proxmox storage:
+nfs: Global_Share
+server 192.168.1.84
+export /volume1/Global_Share
+path /mnt/pve/Global_Share
+
+
+- Proxmox host (`/etc/fstab`) MUST contain:
+192.168.1.84:/volume1/Global_Share /mnt/pve/Global_Share nfs vers=3,rw,hard,timeo=600,retrans=2,_netdev 0 0
+
+
+- CT110 bind mount (`/etc/pve/lxc/110.conf`):
+mp0: /mnt/pve/Global_Share,mp=/home/ubuntu/Global_Share,backup=0
+
+
+- Homepage docker-compose (on CT110):
+volumes:
+- /home/ubuntu/Global_Share:/home/ubuntu/Global_Share:ro
+
+
+**Verification checklist (in order)**
+1. On Proxmox host:
+findmnt -T /mnt/pve/Global_Share
+
+Must show `nfs` (not ext4, not empty).
+
+2. Inside CT110:
+df -hT /home/ubuntu/Global_Share
+
+Must show NAS size (≈10.5T), not the CT root disk.
+
+3. Inside Homepage container:
+docker exec homepage df -hT /home/ubuntu/Global_Share
+
+Must show the same NFS filesystem.
+
+**Operational notes / gotchas**
+- `docker logs --tail` includes historical warnings. Use:
+docker logs --since 3m homepage
+
+to confirm whether the issue is still occurring.
+- Restart CTs using:
+pct stop <id>; pct start <id>
+
+Do NOT assume `pct restart` exists on all Proxmox versions.
+- When running remote SSH commands from `rog_ubuntu`, avoid local variable expansion.
+Use a heredoc pattern:
+ssh root@PVE 'bash -s' <<'BASH'
+...
+BASH
+
+
+**Design rule (do not break)**
+- NAS mounts belong to **Proxmox**, not inside LXCs.
+- LXCs receive NAS access ONLY via bind mounts (`mpX:`).
+- Containers receive NAS access ONLY via docker bind mounts.
+
 ---
 
 ## 13) History of major changes (why earlier docs differ)
