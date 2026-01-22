@@ -1,6 +1,6 @@
 ---
 - name: Update all Docker Compose projects on Docker LXCs
-  hosts: docker_lxcs
+  hosts: lxc
   become: true
   gather_facts: false
 
