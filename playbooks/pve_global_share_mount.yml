@@ -1,0 +1,39 @@
+- name: Ensure Proxmox has Global_Share NFS mounted persistently
+  hosts: pve
+  gather_facts: false
+  become: true
+
+  vars:
+    global_share_server: "192.168.1.84"
+    global_share_export: "/volume1/Global_Share"
+    global_share_path: "/mnt/pve/Global_Share"
+    global_share_opts: "vers=3,rw,hard,timeo=600,retrans=2,_netdev"
+
+  tasks:
+    - name: Ensure mountpoint directory exists
+      ansible.builtin.file:
+        path: "{{ global_share_path }}"
+        state: directory
+        mode: "0777"
+
+    - name: Ensure nfs-common installed
+      ansible.builtin.apt:
+        name: nfs-common
+        state: present
+        update_cache: true
+
+    - name: Ensure fstab entry present
+      ansible.builtin.mount:
+        path: "{{ global_share_path }}"
+        src: "{{ global_share_server }}:{{ global_share_export }}"
+        fstype: nfs
+        opts: "{{ global_share_opts }}"
+        state: present
+
+    - name: Ensure mount is active now
+      ansible.builtin.mount:
+        path: "{{ global_share_path }}"
+        src: "{{ global_share_server }}:{{ global_share_export }}"
+        fstype: nfs
+        opts: "{{ global_share_opts }}"
+        state: mounted

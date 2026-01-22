@@ -1,0 +1,39 @@
+- name: Ensure CT110 bind-mounts Global_Share from Proxmox
+  hosts: pve
+  gather_facts: false
+  become: true
+
+  vars:
+    ct_id: "110"
+    pve_src: "/mnt/pve/Global_Share"
+    ct_dst: "/home/ubuntu/Global_Share"
+    mp_line: "mp0: /mnt/pve/Global_Share,mp=/home/ubuntu/Global_Share,backup=0"
+    ct_conf: "/etc/pve/lxc/{{ ct_id }}.conf"
+
+  tasks:
+    - name: Ensure CT config contains mp0 bind mount line
+      ansible.builtin.lineinfile:
+        path: "{{ ct_conf }}"
+        regexp: '^mp0:\s+'
+        line: "{{ mp_line }}"
+        create: false
+
+    - name: Stop CT (safe if already stopped)
+      ansible.builtin.command: "pct stop {{ ct_id }}"
+      register: stop_res
+      failed_when: false
+      changed_when: stop_res.rc == 0
+
+    - name: Start CT
+      ansible.builtin.command: "pct start {{ ct_id }}"
+      register: start_res
+      changed_when: start_res.rc == 0
+
+    - name: Verify mount inside CT
+      ansible.builtin.command: "pct exec {{ ct_id }} -- bash -lc 'df -hT {{ ct_dst }} || true'"
+      register: verify_res
+      changed_when: false
+
+    - name: Show verify output
+      ansible.builtin.debug:
+        msg: "{{ verify_res.stdout_lines }}"
