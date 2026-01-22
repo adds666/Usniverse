@@ -573,3 +573,59 @@ mp1 was removed (it was not present in IaC repo sources, only in /etc/pve/lxc/11
 If mp1 is ever reintroduced, ensure the host source directory exists first:
 - `mkdir -p /opt/jellyfin/config/cache`
 
+
+---
+
+## Jellyfin (CT111) – Media mounts + metadata egress (Jan 2026)
+
+### Playback fix: make library paths match NAS layout
+Symptoms:
+- Jellyfin attempted to open files under `/media/TV Series/...`
+- ffmpeg failed because `/media/TV Series` didn’t exist in-container
+
+Root cause:
+- NAS layout is nonstandard: TV Series lives under:
+  `/mnt/Global_Share/Media/Movies/TV Series/`
+
+Fix:
+- Mount Movies to `/media` and Music to `/music`:
+  - `/mnt/Global_Share/Media/Movies:/media:ro`
+  - `/mnt/Global_Share/Media/Music:/music:ro`
+- Do NOT mount `/mnt/Global_Share/Media:/media:ro` (breaks expected layout)
+
+Repo source-of-truth:
+- `files/ct111/jellyfin/docker-compose.yml`
+
+### Metadata/posters fix: container had no internet
+Symptoms:
+- Library scan finds items but no posters/metadata
+- `docker exec jellyfin curl https://api.themoviedb.org` timed out
+
+Root cause:
+- Docker-in-LXC egress required NAT/forward rules on the *Proxmox host*
+  that runs CT111 (not CT110 / edge proxy)
+
+Fix on Proxmox host:
+- Enable `net.ipv4.ip_forward=1`
+- Enable `br_netfilter` and bridge sysctls:
+  - `net.bridge.bridge-nf-call-iptables=1` (and ip6/arptables)
+- Add nftables rules (example docker subnet was `172.18.0.0/16`):
+  - NAT postrouting masquerade out `vmbr0`
+  - Forward allow `172.18.0.0/16` and established/related return
+
+Validation:
+- After fix, container `curl -4 -I https://api.themoviedb.org` returned HTTP 301.
+
+### After internet restored: force artwork refresh
+Jellyfin UI:
+- Dashboard → Libraries → (each library) → Refresh metadata
+  - Replace all metadata
+  - Replace existing images
+  - Search for missing metadata
+- Dashboard → Scheduled Tasks → run library/metadata tasks as needed
+
+### Resource notes
+Artwork/cache can grow `/opt/jellyfin/config` (esp cache).
+CT111 at time of debug:
+- rootfs: 256G
+- memory: 2G
