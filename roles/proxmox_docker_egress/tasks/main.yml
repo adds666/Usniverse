@@ -1,0 +1,54 @@
+- name: Load br_netfilter
+  ansible.builtin.modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Persist bridge netfilter sysctls
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-usniverse-bridge-nf.conf
+    mode: "0644"
+    content: |
+      net.bridge.bridge-nf-call-iptables=1
+      net.bridge.bridge-nf-call-ip6tables=1
+      net.bridge.bridge-nf-call-arptables=1
+
+- name: Persist IPv4 forwarding
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-usniverse-ipforward.conf
+    mode: "0644"
+    content: |
+      net.ipv4.ip_forward=1
+
+- name: Apply sysctls
+  ansible.builtin.command: sysctl --system
+  changed_when: false
+
+- name: Ensure nft tables/chains exist
+  ansible.builtin.shell: |
+    set -euo pipefail
+    nft list table ip usniverse_nat >/dev/null 2>&1 || nft add table ip usniverse_nat
+    nft list chain ip usniverse_nat postrouting >/dev/null 2>&1 || nft add chain ip usniverse_nat postrouting '{ type nat hook postrouting priority 100 ; }'
+    nft list table inet usniverse_fwd >/dev/null 2>&1 || nft add table inet usniverse_fwd
+    nft list chain inet usniverse_fwd forward >/dev/null 2>&1 || nft add chain inet usniverse_fwd forward '{ type filter hook forward priority -200 ; policy accept ; }'
+  args:
+    executable: /bin/bash
+
+- name: Add nft NAT+forward rules for each docker subnet
+  ansible.builtin.shell: |
+    set -euo pipefail
+    subnet="{{ item }}"
+    nft add rule ip usniverse_nat postrouting ip saddr "$subnet" oifname "{{ proxmox_egress_if }}" masquerade 2>/dev/null || true
+    nft add rule inet usniverse_fwd forward ip saddr "$subnet" accept 2>/dev/null || true
+    nft add rule inet usniverse_fwd forward ip daddr "$subnet" ct state established,related accept 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  loop: "{{ proxmox_docker_egress_subnets }}"
+
+- name: Show nft rules (debug)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    nft list chain ip usniverse_nat postrouting
+    nft list chain inet usniverse_fwd forward
+  args:
+    executable: /bin/bash
+  changed_when: false

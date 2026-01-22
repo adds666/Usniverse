@@ -1,0 +1,3 @@
+proxmox_docker_egress_subnets:
+  - "172.18.0.0/16"
+proxmox_egress_if: "vmbr0"

@@ -1,0 +1,5 @@
+- name: Proxmox host: enable egress for docker-in-LXC subnets
+  hosts: pve
+  become: true
+  roles:
+    - role: proxmox_docker_egress
