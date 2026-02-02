@@ -705,3 +705,228 @@ Artwork/cache can grow `/opt/jellyfin/config` (esp cache).
 CT111 at time of debug:
 - rootfs: 256G
 - memory: 2G
+
+# Power Control & Usage Visibility (Edge‑Proxy ↔ ServerNode)
+
+> **Purpose**
+> This document captures the *current, working* implementation for:
+
+* Wake‑on‑LAN (WOL)
+* Remote shutdown
+* Homepage UI controls (Wake / Shutdown)
+* LAN + Tailscale–restricted webhook
+
+This exists **before Ansible** so future automation does not re‑discover solved problems.
+
+---
+
+## Architecture Overview
+
+```
+[ Homepage UI ]
+       |
+       v
+[ Edge‑Proxy ]
+  - wol‑webhook (python + systemd)
+  - nftables (LAN + tailscale0)
+       |
+       v
+[ ServerNode ]
+  - WOL enabled on NIC (eno2)
+  - SSH forced command for shutdown
+```
+
+---
+
+## Nodes
+
+| Host       | Role         | IP            |
+| ---------- | ------------ | ------------- |
+| edge‑proxy | Control      | 192.168.1.110 |
+| servernode | Power Target | 192.168.1.104 |
+
+---
+
+## Wake‑on‑LAN (ServerNode)
+
+### NIC
+
+* Interface: `eno2`
+* MAC: `0c:c4:7a:ca:24:2b`
+* WOL mode: `g`
+
+### Persistent systemd unit
+
+File:
+
+```
+/etc/systemd/system/wol-eno2.service
+```
+
+Purpose: ensure WOL survives reboot / shutdown.
+
+---
+
+## Shutdown Mechanism (ServerNode)
+
+### User
+
+* `edge-shutdown`
+* Shell: `/bin/bash` (shell disabled by sshd ForceCommand)
+
+### sshd Match block
+
+File:
+
+```
+/etc/ssh/sshd_config.d/99-edge-shutdown.conf
+```
+
+```
+Match User edge-shutdown
+    ForceCommand sudo /sbin/poweroff
+    PermitTTY no
+    AllowTcpForwarding no
+    X11Forwarding no
+```
+
+### sudoers
+
+File:
+
+```
+/etc/sudoers.d/edge-shutdown
+```
+
+```
+edge-shutdown ALL=(root) NOPASSWD: /sbin/poweroff
+```
+
+> **Why:** polkit blocks non‑root shutdown; sudo is the clean escalation.
+
+---
+
+## Edge‑Proxy Webhook
+
+### Location
+
+```
+/opt/wol-webhook/server.py
+```
+
+### Endpoints
+
+| Path        | Method   | Function        |
+| ----------- | -------- | --------------- |
+| `/wol`      | GET/POST | Send WOL packet |
+| `/shutdown` | GET/POST | SSH → poweroff  |
+
+### Environment
+
+File:
+
+```
+/etc/wol-webhook/env
+```
+
+```
+WOL_PORT=8787
+WOL_TOKEN=***
+```
+
+### systemd service
+
+```
+/etc/systemd/system/wol-webhook.service
+```
+
+---
+
+## Firewall (Edge‑Proxy)
+
+### nftables table
+
+```
+/etc/nftables.d/wol-webhook.nft
+```
+
+Allows:
+
+* localhost
+* LAN: `192.168.1.0/24`
+* Tailscale: `iifname "tailscale0"`
+
+Blocks everything else to port `8787`.
+
+---
+
+## Homepage Integration
+
+### Config path
+
+Host path:
+
+```
+/opt/homepage/config/services.yaml
+```
+
+### Server Control tiles
+
+```
+- Server Control:
+    - Wake ServerNode:
+        icon: mdi-power
+        href: http://192.168.1.110:8787/wol?token=...
+        ping: 192.168.1.104
+
+    - Shutdown ServerNode:
+        icon: mdi-power-off
+        href: http://192.168.1.110:8787/shutdown?token=...
+        ping: 192.168.1.104
+```
+
+---
+
+## Known Pitfalls (DO NOT REPEAT)
+
+* ❌ Editing Homepage YAML with duplicate groups breaks UI silently
+* ❌ Relying on `authorized_keys command=` alone (sshd ignored it)
+* ❌ Using `nologin` shell for forced‑command users
+* ❌ Forgetting sudo for shutdown → polkit denial
+* ❌ Binding webhook without firewall rules
+
+---
+
+## Next Steps (Ansible)
+
+This setup is now **stable** and ready to be automated.
+
+Recommended Ansible split:
+
+1. `role: wol_servernode`
+
+   * enable WOL
+   * install systemd unit
+
+2. `role: shutdown_servernode`
+
+   * user + sudoers
+   * sshd Match block
+
+3. `role: wol_webhook_edge`
+
+   * python script
+   * systemd service
+   * env file
+
+4. `role: firewall_edge`
+
+   * nftables rules
+
+5. `role: homepage_services`
+
+   * render services.yaml
+
+---
+
+> **Status:** Working, tested end‑to‑end (LAN + Tailscale)
