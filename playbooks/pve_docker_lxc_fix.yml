@@ -1,6 +1,6 @@
 ---
 - name: Proxmox-side fixes for Docker inside unprivileged LXC
-  hosts: pve
+  hosts: proxmox
   become: true
   gather_facts: false
 

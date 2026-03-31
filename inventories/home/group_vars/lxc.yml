@@ -1,84 +1,90 @@
----
 lxc_map:
-  - id: 110
-    hostname: edge-proxy
-    ip: 192.168.1.110/24
-    cores: 1
-    memory: 512
-    disk_gb: 8
-    features: []
-
-  - id: 111
-    hostname: jellyfin
-    ip: 192.168.1.111/24
-    cores: 2
-    memory: 2048
-    disk_gb: 16
-    features: []
-
-  - id: 112
-    hostname: immich
-    ip: 192.168.1.112/24
-    cores: 4
-    memory: 4096
-    disk_gb: 32
-    features: []
-
-  - id: 113
-    hostname: ollama
-    ip: 192.168.1.113/24
-    cores: 4
-    memory: 8192
-    disk_gb: 32
-    features: []
-
-  - id: 114
-    hostname: invidious
-    features: "nesting=1,keyctl=1"
-    ip: 192.168.1.114
-    cores: 2
-    memory: 2048
-    disk_gb: 16
-
-  - id: 115
-    hostname: openwebui
-    ip: 192.168.1.115/24
-    cores: 2
-    memory: 4096
-    disk_gb: 16
-    features: []
-
-  - id: 116
-    hostname: n8n
-    ip: 192.168.1.116
-    cores: 1
-    memory: 1024
-    disk_gb: 16
-    features:
-      - nesting=1
-      - keyctl=1
-
-  - id: 117
-    hostname: synapse
-    ip: 192.168.1.117
-    cores: 1
-    memory: 1024
-    disk_gb: 16
-    features:
-      - nesting=1
-      - keyctl=1
-
-  - id: 118
-    hostname: ombi
-    ip: 192.168.1.118
-    cores: 1
-    memory: 1024
-    disk_gb: 16
-    features:
-      - nesting=1
-      - keyctl=1
-
-
-
-# When remote, CTs (192.168.1.x) are only reachable via jump hosts.
-# Chain: jump-vm (tailscale) -> pve (tailscale) -> CT (LAN)
+- id: 110
+  node: pve
+  hostname: edge-proxy
+  ip: 192.168.1.110/24
+  cores: 1
+  memory: 512
+  disk_gb: 8
+  features: []
+- id: 111
+  node: pve
+  hostname: jellyfin
+  ip: 192.168.1.111/24
+  cores: 2
+  memory: 2048
+  disk_gb: 16
+  features: []
+- id: 112
+  node: pve
+  hostname: immich
+  ip: 192.168.1.112/24
+  cores: 4
+  memory: 4096
+  disk_gb: 32
+  features: []
+- id: 113
+  node: servernode
+  hostname: ollama
+  ip: 192.168.1.113/24
+  cores: 4
+  memory: 8192
+  disk_gb: 32
+  features: []
+- id: 114
+  node: pve
+  hostname: invidious
+  features: nesting=1,keyctl=1
+  ip: 192.168.1.114
+  cores: 2
+  memory: 2048
+  disk_gb: 16
+- id: 115
+  node: servernode
+  hostname: openwebui
+  ip: 192.168.1.115/24
+  cores: 2
+  memory: 4096
+  disk_gb: 16
+  features: []
+- id: 116
+  node: pve
+  hostname: n8n
+  ip: 192.168.1.116
+  cores: 1
+  memory: 1024
+  disk_gb: 16
+  features:
+  - nesting=1
+  - keyctl=1
+- id: 117
+  node: pve
+  hostname: synapse
+  ip: 192.168.1.117
+  cores: 1
+  memory: 1024
+  disk_gb: 16
+  features:
+  - nesting=1
+  - keyctl=1
+- id: 118
+  node: pve
+  hostname: ombi
+  ip: 192.168.1.118
+  cores: 1
+  memory: 1024
+  disk_gb: 16
+  features:
+  - nesting=1
+  - keyctl=1
+- id: 219
+  node: servernode
+  hostname: immich-ml
+  ip: 192.168.1.219
+  cores: 4
+  memory: 8192
+  disk_gb: 16
+  features:
+  - nesting=1
+  - keyctl=1
+  - fuse=1

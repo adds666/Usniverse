@@ -41,12 +41,15 @@
         content: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_ed25519.pub') }}"
         mode: '0600'
 
-    - name: Check if CT already exists
+    - name: Check if CT already exists anywhere in the cluster
       ansible.builtin.shell: |
-        pct status {{ item.id }} >/dev/null 2>&1 && echo "exists" || echo "missing"
+        test -e /etc/pve/nodes/*/lxc/{{ item.id }}.conf && echo "exists" || echo "missing"
       register: ct_exists
       changed_when: false
       loop: "{{ lxc_map }}"
+      when:
+        - item.node == inventory_hostname
+        - lxc_target_ids | default([]) | length == 0 or item.id in (lxc_target_ids | default([]) | list)
       loop_control:
         label: "{{ item.id }} {{ item.hostname }}"
 
@@ -64,7 +67,7 @@
           --cores {{ item.item.cores }} \
           --memory {{ item.item.memory }} \
           --swap 0 \
-          --rootfs "local-lvm:{{ item.item.disk_gb }}" \
+          --rootfs "{{ lxc_rootfs_storage | default('local-lvm') }}:{{ item.item.disk_gb }}" \
           --net0 "name=eth0,bridge={{ lxc_bridge }},ip={{ (item.item.ip is string and '/' in item.item.ip) | ternary(item.item.ip, item.item.ip ~ '/24') }},gw={{ lxc_gw }}" \
           --nameserver "{{ lxc_dns }}" \
           --unprivileged 1 \
@@ -73,8 +76,12 @@
           --ssh-public-keys /root/ansible_pubkey.pub
       args:
         executable: /bin/bash
-      when: item.stdout == "missing"
       loop: "{{ ct_exists.results }}"
+      when:
+        - item.stdout is defined
+        - item.stdout == "missing"
+        - item.item.node == inventory_hostname
+        - lxc_target_ids | default([]) | length == 0 or item.item.id in (lxc_target_ids | default([]) | list)
       loop_control:
         label: "{{ item.item.id }} {{ item.item.hostname }}"
 
@@ -83,6 +90,9 @@
         pct start {{ item.id }} || true
       changed_when: false
       loop: "{{ lxc_map }}"
+      when:
+        - item.node == inventory_hostname
+        - lxc_target_ids | default([]) | length == 0 or item.id in (lxc_target_ids | default([]) | list)
       loop_control:
         label: "{{ item.id }} {{ item.hostname }}"
 

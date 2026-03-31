@@ -1,0 +1,4 @@
+lxc_rootfs_storage: local-zfs
+docker_lxc_ct_ids:
+  - 215
+  - 219

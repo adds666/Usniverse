@@ -3,7 +3,7 @@
   hosts: proxmox
   become: true
   vars:
-    ct_ids: [116]   # <-- add new CT IDs here when needed
+    ct_ids: []   # <-- add new CT IDs here when needed
   tasks:
     - name: Read controller public key
       delegate_to: localhost
