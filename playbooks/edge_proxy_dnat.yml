@@ -1,0 +1,88 @@
+- name: Manage edge-proxy DNAT rules on CT110 via macbookpro
+  hosts: pve
+  gather_facts: false
+  become: true
+  vars_files:
+    - ../group_vars/all/edge_proxy_dnat.yml
+
+  tasks:
+    - name: Backup current rules.v4 inside CT110
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        set -e
+        mkdir -p /etc/iptables
+        if [ -f /etc/iptables/rules.v4 ]; then
+          cp /etc/iptables/rules.v4 /etc/iptables/rules.v4.bak.$(date +%F-%H%M%S)
+        else
+          iptables-save > /etc/iptables/rules.v4
+        fi
+        '
+      changed_when: true
+
+    - name: Ensure managed chains exist
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        set -e
+        iptables -t nat -N USNIVERSE_DNAT 2>/dev/null || true
+        iptables -N USNIVERSE_FORWARD 2>/dev/null || true
+        '
+      changed_when: true
+
+    - name: Ensure jump rules exist
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        iptables -t nat -C PREROUTING -i {{ edge_proxy_ts_if }} -j USNIVERSE_DNAT 2>/dev/null || \
+        iptables -t nat -A PREROUTING -i {{ edge_proxy_ts_if }} -j USNIVERSE_DNAT
+
+        iptables -C FORWARD -j USNIVERSE_FORWARD 2>/dev/null || \
+        iptables -A FORWARD -j USNIVERSE_FORWARD
+        '
+      changed_when: true
+
+    - name: Flush managed chains
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        iptables -t nat -F USNIVERSE_DNAT
+        iptables -F USNIVERSE_FORWARD
+        '
+      changed_when: true
+
+    - name: Apply DNAT rules
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        iptables -t nat -A USNIVERSE_DNAT -p {{ item.protocol }} --dport {{ item.listen_port }} \
+        -j DNAT --to-destination {{ item.target_ip }}:{{ item.target_port }}
+        '
+      loop: "{{ edge_proxy_dnat_rules }}"
+      changed_when: true
+
+    - name: Apply FORWARD rules
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        iptables -A USNIVERSE_FORWARD -d {{ item.target_ip }}/32 -i {{ edge_proxy_ts_if }} -o {{ edge_proxy_lan_if }} \
+        -p {{ item.protocol }} --dport {{ item.target_port }} -j ACCEPT
+
+        iptables -A USNIVERSE_FORWARD -s {{ item.target_ip }}/32 -i {{ edge_proxy_lan_if }} -o {{ edge_proxy_ts_if }} \
+        -p {{ item.protocol }} --sport {{ item.target_port }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+        '
+      loop: "{{ edge_proxy_dnat_rules }}"
+      changed_when: true
+
+    - name: Save rules
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        iptables-save > /etc/iptables/rules.v4
+        systemctl restart netfilter-persistent || true
+        '
+      changed_when: true
+
+    - name: Show result
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        echo "== DNAT =="
+        iptables -t nat -S USNIVERSE_DNAT
+        echo
+        echo "== FORWARD =="
+        iptables -S USNIVERSE_FORWARD
+        '
+      changed_when: false

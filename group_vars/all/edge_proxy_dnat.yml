@@ -1,0 +1,52 @@
+edge_proxy_ct_id: 110
+edge_proxy_ts_if: tailscale0
+edge_proxy_lan_if: eth0
+
+edge_proxy_dnat_rules:
+  - name: jellyfin
+    protocol: tcp
+    listen_port: 8096
+    target_ip: 192.168.1.111
+    target_port: 8096
+
+  - name: ombi
+    protocol: tcp
+    listen_port: 3579
+    target_ip: 192.168.1.118
+    target_port: 3579
+
+  - name: synapse
+    protocol: tcp
+    listen_port: 8008
+    target_ip: 192.168.1.117
+    target_port: 8008
+
+  - name: n8n
+    protocol: tcp
+    listen_port: 5678
+    target_ip: 192.168.1.116
+    target_port: 5678
+
+  - name: openwebui
+    protocol: tcp
+    listen_port: 8081
+    target_ip: 192.168.1.115
+    target_port: 3000
+
+  - name: ollama
+    protocol: tcp
+    listen_port: 11435
+    target_ip: 192.168.1.113
+    target_port: 11434
+
+  - name: invidious
+    protocol: tcp
+    listen_port: 4000
+    target_ip: 192.168.1.114
+    target_port: 3000
+
+  - name: comfyui
+    protocol: tcp
+    listen_port: 8188
+    target_ip: 192.168.1.120
+    target_port: 8188
