@@ -1,0 +1,20 @@
+services:
+  comfyui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: comfyui
+    restart: unless-stopped
+    ports:
+      - "${COMFYUI_BIND_IP:-0.0.0.0}:${COMFYUI_PORT:-8188}:8188"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
+      NVIDIA_DRIVER_CAPABILITIES: "${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}"
+      CLI_ARGS: "${CLI_ARGS:-}"
+    volumes:
+      - ./data/input:/opt/ComfyUI/input
+      - ./data/output:/opt/ComfyUI/output
+      - ./data/models:/opt/ComfyUI/models
+      - ./data/custom_nodes:/opt/ComfyUI/custom_nodes
+      - ./data/user:/opt/ComfyUI/user
+    gpus: all

@@ -4,6 +4,54 @@
   become: true
   gather_facts: false
 
+  vars:
+    docker_lxc_ct_ids:
+      - 111
+      - 114
+      - 115
+      - 116
+      - 118
+      - 120
+      - 219
+
+    gpu_lxc_ct_ids:
+      - 120
+
+    nvidia_lxc_lines:
+      - "lxc.cgroup2.devices.allow: c 195:* rwm"
+      - "lxc.cgroup2.devices.allow: c 234:* rwm"
+      - "lxc.cgroup2.devices.allow: c 236:* rwm"
+      - "lxc.cgroup2.devices.allow: c 237:* rwm"
+      - "lxc.cgroup2.devices.allow: c 238:* rwm"
+      - "lxc.cgroup2.devices.allow: c 239:* rwm"
+      - "lxc.cgroup2.devices.allow: c 240:* rwm"
+      - "lxc.cgroup2.devices.allow: c 241:* rwm"
+      - "lxc.cgroup2.devices.allow: c 242:* rwm"
+      - "lxc.cgroup2.devices.allow: c 243:* rwm"
+      - "lxc.cgroup2.devices.allow: c 244:* rwm"
+      - "lxc.cgroup2.devices.allow: c 245:* rwm"
+      - "lxc.cgroup2.devices.allow: c 246:* rwm"
+      - "lxc.cgroup2.devices.allow: c 247:* rwm"
+      - "lxc.cgroup2.devices.allow: c 248:* rwm"
+      - "lxc.cgroup2.devices.allow: c 249:* rwm"
+      - "lxc.cgroup2.devices.allow: c 250:* rwm"
+      - "lxc.cgroup2.devices.allow: c 251:* rwm"
+      - "lxc.cgroup2.devices.allow: c 252:* rwm"
+      - "lxc.cgroup2.devices.allow: c 253:* rwm"
+      - "lxc.cgroup2.devices.allow: c 254:* rwm"
+      - "lxc.cgroup2.devices.allow: c 255:* rwm"
+      - "lxc.cgroup2.devices.allow: c 509:* rwm"
+      - "lxc.cgroup2.devices.allow: c 511:* rwm"
+      - "lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file"
+      - "lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file"
+      - "lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file"
+      - "lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file"
+      - "lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file"
+      - "lxc.mount.entry: /dev/nvidia-caps dev/nvidia-caps none bind,optional,create=dir"
+      - "lxc.mount.entry: /usr/lib/x86_64-linux-gnu/libcuda.so.1 usr/lib/x86_64-linux-gnu/libcuda.so.1 none bind,optional,create=file"
+      - "lxc.mount.entry: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 none bind,optional,create=file"
+      - "lxc.mount.entry: /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 none bind,optional,create=file"
+
   tasks:
     - name: Ensure fuse module loaded and persistent
       ansible.builtin.shell: |
@@ -13,23 +61,37 @@
       args:
         executable: /bin/bash
 
-    - name: Patch LXC config for each CT
+    - name: Patch LXC config for each Docker CT
       ansible.builtin.shell: |
         set -e
         CONF="/etc/pve/lxc/{{ item }}.conf"
-
+        [ -f "$CONF" ] || exit 0
         grep -qxF "lxc.cgroup2.devices.allow: c 10:229 rwm" "$CONF" || echo "lxc.cgroup2.devices.allow: c 10:229 rwm" >> "$CONF"
         grep -qxF "lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file" "$CONF" || echo "lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file" >> "$CONF"
-
         grep -qxF "lxc.apparmor.profile: unconfined" "$CONF" || echo "lxc.apparmor.profile: unconfined" >> "$CONF"
         grep -qxF "lxc.mount.auto: proc:rw sys:rw" "$CONF" || echo "lxc.mount.auto: proc:rw sys:rw" >> "$CONF"
       args:
         executable: /bin/bash
       loop: "{{ docker_lxc_ct_ids }}"
+    - name: Patch NVIDIA passthrough for each GPU CT
+      ansible.builtin.shell: |
+        set -e
+        CONF="/etc/pve/lxc/{{ item }}.conf"
+        [ -f "$CONF" ] || exit 0
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          grep -qxF "$line" "$CONF" || echo "$line" >> "$CONF"
+        done <<'LINES'
+        {{ nvidia_lxc_lines | join('\n') }}
+        LINES
+      args:
+        executable: /bin/bash
+      loop: "{{ gpu_lxc_ct_ids }}"
 
     - name: Restart CTs to apply config
       ansible.builtin.shell: |
         set -e
+        test -f /etc/pve/lxc/{{ item }}.conf || exit 0
         timeout 10 pct stop {{ item }} || true
         timeout 10 pct start {{ item }} || true
       args:

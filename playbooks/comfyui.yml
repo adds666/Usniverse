@@ -1,0 +1,91 @@
+---
+- name: Deploy ComfyUI on CT120
+  hosts: ct120
+  become: true
+  gather_facts: true
+
+  vars:
+    comfyui_root: /opt/comfyui
+
+  tasks:
+    - name: Install prerequisites for NVIDIA toolkit repo
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+
+    - name: Add NVIDIA container toolkit keyring
+      ansible.builtin.shell: |
+        set -euo pipefail
+        curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+      args:
+        executable: /bin/bash
+        creates: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+    - name: Add NVIDIA container toolkit repo
+      ansible.builtin.shell: |
+        set -euo pipefail
+        curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+      args:
+        executable: /bin/bash
+        creates: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+    - name: Install NVIDIA container toolkit
+      ansible.builtin.apt:
+        name:
+          - nvidia-container-toolkit
+          - nvidia-container-toolkit-base
+          - libnvidia-container-tools
+          - libnvidia-container1
+        state: present
+        update_cache: true
+
+    - name: Configure Docker runtime for NVIDIA
+      ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+      register: nvidia_ctk
+      changed_when: nvidia_ctk.rc == 0
+
+    - name: Restart Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+        enabled: true
+
+    - name: Create ComfyUI root
+      ansible.builtin.file:
+        path: "{{ comfyui_root }}"
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+
+    - name: Copy ComfyUI payload
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../files/ct120/comfyui/"
+        dest: "{{ comfyui_root }}/"
+        owner: admin
+        group: admin
+        mode: preserve
+
+    - name: Create ComfyUI data directories
+      ansible.builtin.file:
+        path: "{{ comfyui_root }}/data/{{ item }}"
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+      loop:
+        - input
+        - output
+        - models
+        - custom_nodes
+        - user
+
+    - name: Build and start ComfyUI
+      community.docker.docker_compose_v2:
+        project_src: "{{ comfyui_root }}"
+        state: present
+        build: always
