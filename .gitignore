@@ -19,3 +19,9 @@ venvs/
 inventories/_backups/
 *.bak
 *.bak.*
+
+# Ignore runtime data
+opt/**/data/
+**/data/
+**/.openclaw/
+**/workspace/

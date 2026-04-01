@@ -50,3 +50,9 @@ edge_proxy_dnat_rules:
     listen_port: 8188
     target_ip: 192.168.1.120
     target_port: 8188
+
+  - name: openclaw
+    protocol: tcp
+    listen_port: 18789
+    target_ip: 192.168.1.121
+    target_port: 18789

@@ -99,3 +99,16 @@ lxc_map:
   - keyctl=1
   - fuse=1
   node: servernode
+
+- id: 121
+  hostname: openclaw
+  ip: 192.168.1.121/24
+  cores: 4
+  memory: 4096
+  disk_gb: 16
+  features:
+  - nesting=1
+  - keyctl=1
+  - fuse=1
+  node: servernode
+
