@@ -43,15 +43,15 @@
 
     - name: Check if CT already exists anywhere in the cluster
       ansible.builtin.shell: |
-        test -e /etc/pve/nodes/*/lxc/{{ item.id }}.conf && echo "exists" || echo "missing"
+        test -e /etc/pve/nodes/*/lxc/{{ item.proxmox_vmid | default(item.id) }}.conf && echo "exists" || echo "missing"
       register: ct_exists
       changed_when: false
       loop: "{{ lxc_map }}"
       when:
         - item.node == inventory_hostname
-        - lxc_target_ids | default([]) | length == 0 or item.id in (lxc_target_ids | default([]) | list)
+        - lxc_target_ids | default([]) | length == 0 or item.id in (lxc_target_ids | default([]) | list) or (item.proxmox_vmid | default(item.id)) in (lxc_target_ids | default([]) | list)
       loop_control:
-        label: "{{ item.id }} {{ item.hostname }}"
+        label: "{{ item.id }} (vmid {{ item.proxmox_vmid | default(item.id) }}) {{ item.hostname }}"
 
     - name: Create CTs that are missing
       ansible.builtin.shell: |
@@ -62,7 +62,7 @@
           FEATURES_ARG="{% set _f = (item.item.features is string) | ternary(item.item.features, (item.item.features | default([])) | join(',')) %}{% if _f | trim | length > 0 %}--features {{ _f }}{% endif %}"
         fi
 
-        pct create {{ item.item.id }} "local:vztmpl/{{ deb12_tpl.stdout }}" \
+        pct create {{ item.item.proxmox_vmid | default(item.item.id) }} "local:vztmpl/{{ deb12_tpl.stdout }}" \
           --hostname "{{ item.item.hostname }}" \
           --cores {{ item.item.cores }} \
           --memory {{ item.item.memory }} \
@@ -81,20 +81,20 @@
         - item.stdout is defined
         - item.stdout == "missing"
         - item.item.node == inventory_hostname
-        - lxc_target_ids | default([]) | length == 0 or item.item.id in (lxc_target_ids | default([]) | list)
+        - lxc_target_ids | default([]) | length == 0 or item.item.id in (lxc_target_ids | default([]) | list) or (item.item.proxmox_vmid | default(item.item.id)) in (lxc_target_ids | default([]) | list)
       loop_control:
-        label: "{{ item.item.id }} {{ item.item.hostname }}"
+        label: "{{ item.item.id }} (vmid {{ item.item.proxmox_vmid | default(item.item.id) }}) {{ item.item.hostname }}"
 
     - name: Start CTs
       ansible.builtin.shell: |
-        pct start {{ item.id }} || true
+        pct start {{ item.proxmox_vmid | default(item.id) }} || true
       changed_when: false
       loop: "{{ lxc_map }}"
       when:
         - item.node == inventory_hostname
-        - lxc_target_ids | default([]) | length == 0 or item.id in (lxc_target_ids | default([]) | list)
+        - lxc_target_ids | default([]) | length == 0 or item.id in (lxc_target_ids | default([]) | list) or (item.proxmox_vmid | default(item.id)) in (lxc_target_ids | default([]) | list)
       loop_control:
-        label: "{{ item.id }} {{ item.hostname }}"
+        label: "{{ item.id }} (vmid {{ item.proxmox_vmid | default(item.id) }}) {{ item.hostname }}"
 
     - name: Show CT status
       ansible.builtin.command: pct list

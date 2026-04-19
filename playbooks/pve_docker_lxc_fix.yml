@@ -5,16 +5,6 @@
   gather_facts: false
 
   vars:
-    docker_lxc_ct_ids:
-      - 111
-      - 114
-      - 115
-      - 116
-      - 118
-      - 120
-      - 121
-      - 219
-
     gpu_lxc_ct_ids:
       - 120
 
@@ -52,6 +42,14 @@
       - "lxc.mount.entry: /usr/lib/x86_64-linux-gnu/libcuda.so.1 usr/lib/x86_64-linux-gnu/libcuda.so.1 none bind,optional,create=file"
       - "lxc.mount.entry: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 none bind,optional,create=file"
       - "lxc.mount.entry: /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 none bind,optional,create=file"
+
+  pre_tasks:
+    - name: Assert Docker CT VMIDs are defined for this Proxmox node
+      ansible.builtin.assert:
+        that:
+          - docker_lxc_ct_ids is defined
+          - docker_lxc_ct_ids | length > 0
+        fail_msg: "Define docker_lxc_ct_ids in host_vars for {{ inventory_hostname }}"
 
   tasks:
     - name: Ensure fuse module loaded and persistent

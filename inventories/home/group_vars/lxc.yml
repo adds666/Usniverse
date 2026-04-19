@@ -1,114 +1,137 @@
 lxc_map:
-- id: 110
-  node: pve
-  hostname: edge-proxy
-  ip: 192.168.1.110/24
-  cores: 1
-  memory: 512
-  disk_gb: 8
-  features: []
-- id: 111
-  node: pve
-  hostname: jellyfin
-  ip: 192.168.1.111/24
-  cores: 2
-  memory: 2048
-  disk_gb: 16
-  features: []
-- id: 112
-  node: pve
-  hostname: immich
-  ip: 192.168.1.112/24
-  cores: 4
-  memory: 4096
-  disk_gb: 32
-  features: []
-- id: 113
-  node: servernode
-  hostname: ollama
-  ip: 192.168.1.113/24
-  cores: 4
-  memory: 8192
-  disk_gb: 32
-  features: []
-- id: 114
-  node: pve
-  hostname: invidious
-  features: nesting=1,keyctl=1
-  ip: 192.168.1.114
-  cores: 2
-  memory: 2048
-  disk_gb: 16
-- id: 115
-  node: servernode
-  hostname: openwebui
-  ip: 192.168.1.115/24
-  cores: 2
-  memory: 4096
-  disk_gb: 16
-  features: []
-- id: 116
-  node: pve
-  hostname: n8n
-  ip: 192.168.1.116
-  cores: 1
-  memory: 1024
-  disk_gb: 16
-  features:
-  - nesting=1
-  - keyctl=1
-- id: 117
-  node: pve
-  hostname: synapse
-  ip: 192.168.1.117
-  cores: 1
-  memory: 1024
-  disk_gb: 16
-  features:
-  - nesting=1
-  - keyctl=1
-- id: 118
-  node: pve
-  hostname: ombi
-  ip: 192.168.1.118
-  cores: 1
-  memory: 1024
-  disk_gb: 16
-  features:
-  - nesting=1
-  - keyctl=1
-- id: 219
-  node: servernode
-  hostname: immich-ml
-  ip: 192.168.1.219
-  cores: 4
-  memory: 8192
-  disk_gb: 16
-  features:
-  - nesting=1
-  - keyctl=1
-  - fuse=1
-- id: 120
-  hostname: comfyui
-  ip: 192.168.1.120/24
-  cores: 8
-  memory: 16384
-  disk_gb: 80
-  features:
-  - nesting=1
-  - keyctl=1
-  - fuse=1
-  node: servernode
-
-- id: 121
-  hostname: openclaw
-  ip: 192.168.1.121/24
-  cores: 4
-  memory: 4096
-  disk_gb: 16
-  features:
-  - nesting=1
-  - keyctl=1
-  - fuse=1
-  node: servernode
+  # `id` is the logical CT number used in naming/IP conventions.
+  # `proxmox_vmid` is the live VMID on the Proxmox host until the CT is renumbered.
+  - id: 110
+    proxmox_vmid: 110
+    node: pve
+    hostname: edge-proxy
+    ip: 192.168.1.110/24
+    cores: 1
+    memory: 512
+    disk_gb: 8
+    features: []
+  - id: 111
+    proxmox_vmid: 111
+    node: pve
+    hostname: jellyfin
+    ip: 192.168.1.111/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 112
+    proxmox_vmid: 112
+    node: pve
+    hostname: immich
+    ip: 192.168.1.112/24
+    cores: 4
+    memory: 4096
+    disk_gb: 32
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 113
+    proxmox_vmid: 113
+    node: servernode
+    hostname: ollama
+    ip: 192.168.1.113/24
+    cores: 4
+    memory: 8192
+    disk_gb: 32
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 114
+    proxmox_vmid: 114
+    node: pve
+    hostname: invidious
+    ip: 192.168.1.114/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 115
+    proxmox_vmid: 215
+    node: servernode
+    hostname: openwebui
+    ip: 192.168.1.115/24
+    cores: 2
+    memory: 4096
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 116
+    proxmox_vmid: 116
+    node: pve
+    hostname: n8n
+    ip: 192.168.1.116/24
+    cores: 1
+    memory: 1024
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 117
+    proxmox_vmid: 117
+    node: pve
+    hostname: synapse
+    ip: 192.168.1.117/24
+    cores: 1
+    memory: 1024
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 118
+    proxmox_vmid: 118
+    node: pve
+    hostname: ombi
+    ip: 192.168.1.118/24
+    cores: 1
+    memory: 1024
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 120
+    proxmox_vmid: 120
+    node: servernode
+    hostname: comfyui
+    ip: 192.168.1.120/24
+    cores: 8
+    memory: 16384
+    disk_gb: 80
+    features:
+      - nesting=1
+      - keyctl=1
+      - fuse=1
+  - id: 121
+    proxmox_vmid: 121
+    node: servernode
+    hostname: openclaw
+    ip: 192.168.1.121/24
+    cores: 4
+    memory: 4096
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+      - fuse=1
+  - id: 219
+    proxmox_vmid: 219
+    node: servernode
+    hostname: immich-ml
+    ip: 192.168.1.219/24
+    cores: 4
+    memory: 8192
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+      - fuse=1
 

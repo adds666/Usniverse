@@ -3,7 +3,7 @@
   hosts: proxmox
   become: true
   vars:
-    ct_ids: []   # <-- add new CT IDs here when needed
+    ct_ids: []   # Proxmox VMIDs to bootstrap, e.g. 111, 113, 215
   tasks:
     - name: Read controller public key
       delegate_to: localhost
