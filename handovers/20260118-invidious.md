@@ -2,6 +2,9 @@
 
 Scope: This file documents ONLY the CT114 Invidious deployment + fixes (no other handovers).
 
+> Historical snapshot: superseded by `handovers/USNIVERSE_MASTER_HANDOVER.md`.
+> Keep for migration/debug history only. If it conflicts with current docs, the master handover wins.
+
 Location in CT114: /opt/invidious
 Service: Invidious + Postgres + Invidious Companion via docker-compose
 

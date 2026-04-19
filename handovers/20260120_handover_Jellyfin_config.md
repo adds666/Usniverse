@@ -2,6 +2,9 @@
 
 Date: 2026-01-20
 
+> Historical snapshot: superseded by `handovers/USNIVERSE_MASTER_HANDOVER.md`.
+> Keep for migration/debug history only. If it conflicts with current docs, the master handover wins.
+
 This document **supersedes and extends** handover1 + handover2. It is written so that a *fresh agent* can take over without any prior context.
 
 ---
@@ -287,4 +290,3 @@ If something "mysteriously" breaks:
 4. Assume permissions, not networking
 
 This system is stable **when treated declaratively**.
-

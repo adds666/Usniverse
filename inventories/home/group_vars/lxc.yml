@@ -1,6 +1,7 @@
 lxc_map:
-  # `id` is the logical CT number used in naming/IP conventions.
-  # `proxmox_vmid` is the live VMID on the Proxmox host until the CT is renumbered.
+  # `id` is the logical CT number used in naming and IP conventions.
+  # `proxmox_vmid` is the live VMID on the Proxmox host.
+  # In steady state they should match; temporary differences are only for in-progress renumbering.
   - id: 110
     proxmox_vmid: 110
     node: pve
@@ -55,7 +56,7 @@ lxc_map:
       - nesting=1
       - keyctl=1
   - id: 115
-    proxmox_vmid: 215
+    proxmox_vmid: 115
     node: servernode
     hostname: openwebui
     ip: 192.168.1.115/24

@@ -1,932 +1,425 @@
-# USNIVERSE — AUTHORITATIVE MASTER HANDOVER (CANON)
-**Canonical date:** 2026-01-21 (Europe/London)  
-**Audience:** future AI agents + human operators  
-**Intent:** *single source of truth* for architecture, methodology, current state, and “don’t repeat the pain”.
+# USNIVERSE MASTER HANDOVER
 
-> **Rule of interpretation:**  
-> If an older handover conflicts with this file, **this file wins**.  
-> If this file says “planned/target”, it is *aspirational*; everything labelled **CURRENT** is ground truth.
+Canonical date: 2026-04-19  
+Audience: human operators and future AI agents  
+Status: current source of truth for the repo as it exists today
 
----
+If an older handover conflicts with this file, this file wins.
 
-## 0) Read-first rules for future agents
+## 1. Project Definition
 
-### 0.1 Operational rules (do not break)
-1. **CLI only**: do not use nano/vim/editors or Proxmox UI clicking in instructions.  
-2. **Commands must be provided in a single unbroken code block** (ChatGPT UI truncation/buffer issues).  
-3. **Terminal buffer friendly (especially when remote)**: prefer **small, paste-safe command chunks** (each chunk self-contained) over one massive block; avoid long heredocs unless explicitly requested.
-4. **Assume remote execution** unless explicitly stated.  
-5. **Idempotency first**: check before mutating state.  
-6. **Proxmox is authoritative** for mounts, backups, snapshots.  
-7. **One service per LXC** (separation of concerns).
+Usniverse is a Proxmox homelab managed primarily with Ansible. The repo is focused on:
 
-### 0.2 Design constraints (non-negotiable)
-1. **LXCs (not VMs)**
-2. **Unprivileged LXCs**
-3. **Debian 12 is the target LXC OS baseline**  
-   - Some containers may currently be Ubuntu due to earlier migration timing; see “History / Changes”.
-4. **Single ingress point**: **CT110 edge-proxy** owns Tailscale + forwarding.
-5. **No NFS mounts inside LXCs**: NFS is mounted on Proxmox and bind-mounted into LXCs.
+- unprivileged LXC containers rather than VMs
+- one service per container where practical
+- Debian 12 as the preferred LXC baseline
+- Docker inside selected LXCs only
+- CLI-first, repeatable operations
+- centralized external access through `ct110` (`edge-proxy`)
+- Proxmox-owned storage mounts with bind mounts into LXCs
 
----
+This repo is both infrastructure-as-code and an operations repo. Not every currently running service is fully represented by a dedicated app deployment playbook yet.
 
-## 1) What Usniverse is (project definition)
+## 2. Environment Model
 
-Usniverse is a homelab migration + IaC project to move from a few “heavy” Ubuntu VMs running many Docker Compose apps into:
+### 2.1 Inventory aliases vs actual Proxmox node names
 
-- **One Debian 12 LXC per app**
-- Fully reproducible lifecycle via **Ansible**
-- Clear network topology:
-  - LAN-only services by default
-  - A single ingress point for friends/external access via **Tailscale**
+The repo uses Ansible host aliases for Proxmox nodes:
 
-This is a **re-platform** (not a tidy-up).
+| Inventory alias | Actual Proxmox node name | Purpose |
+| --- | --- | --- |
+| `pve` | `macbookpro` | primary Proxmox node |
+| `servernode` | `servernode` | secondary Proxmox node |
 
----
+Important:
 
-## 2) Current architecture (CURRENT)
+- `inventories/home/group_vars/lxc.yml` uses `node: pve` or `node: servernode`, meaning the Ansible alias.
+- `inventories/home/group_vars/proxmox.yml` still contains `proxmox_node: macbookpro`, which is the actual Proxmox node name used in Proxmox-specific contexts.
 
-### 2.1 Platform
-- **Proxmox host:** `pve`
-- All services run as **unprivileged LXCs**
-- Docker runs **inside** LXCs when needed
+### 2.2 Network conventions
 
-### 2.2 Network
 - LAN: `192.168.1.0/24`
-- Convention: **CT ID == last octet of IP**
-  - CT111 → `192.168.1.111`
-  - CT118 → `192.168.1.118`
+- Most managed CTs follow `CT ID == last octet of IP`
+- `ct219` is the intentional exception that still lives in the `2xx` range
 
-### 2.3 Ingress & external access
-- **CT110 = edge-proxy**
-  - Runs **Tailscale**
-  - Owns **iptables DNAT** for exposed services
-- **UbuntuVM2** (older “jump host / ingress”) is **deprecated** for ingress.
-  - It may still exist as a *data source* for configs until migrations complete.
+### 2.3 Access model
 
----
+- `ct110` is the edge proxy and Tailscale ingress point
+- LXC SSH may be routed through ProxyJump when working remotely
+- Proxmox remains authoritative for CT config, bind mounts, stop/start, backup, and restore
 
-## 3) Current service inventory (CURRENT)
+## 3. Current Managed Estate
 
-> **Note about CT numbering conflicts in older docs:**  
-> Some older handovers accidentally list CT115/CT116 roles incorrectly.  
-> The DNAT rules and the n8n handover confirm **n8n is on CT116**.
+| CT | Hostname | Node | VMID | IP | Docker | Dedicated app playbook | Notes |
+| ---: | --- | --- | ---: | --- | --- | --- | --- |
+| 110 | edge-proxy | `pve` | 110 | `192.168.1.110` | no | no | ingress, Tailscale, DNAT |
+| 111 | jellyfin | `pve` | 111 | `192.168.1.111` | yes | yes | app playbook plus static compose asset |
+| 112 | immich | `pve` | 112 | `192.168.1.112` | yes | no | infra represented, app playbook absent |
+| 113 | ollama | `servernode` | 113 | `192.168.1.113` | yes | yes | renumbered from `213` |
+| 114 | invidious | `pve` | 114 | `192.168.1.114` | yes | no | service known, playbook absent |
+| 115 | openwebui | `servernode` | 115 | `192.168.1.115` | yes | yes | renumbered from `215` |
+| 116 | n8n | `pve` | 116 | `192.168.1.116` | yes | yes | playbook writes compose inline |
+| 117 | synapse | `pve` | 117 | `192.168.1.117` | yes | no | service known, playbook absent |
+| 118 | ombi | `pve` | 118 | `192.168.1.118` | yes | no | service known, playbook absent |
+| 120 | comfyui | `servernode` | 120 | `192.168.1.120` | yes | yes | GPU-enabled workload |
+| 121 | openclaw | `servernode` | 121 | `192.168.1.121` | yes | yes | builds local image from upstream repo |
+| 219 | immich-ml | `servernode` | 219 | `192.168.1.219` | yes | no | still intentionally `219` |
 
-| CT | Hostname / Role | Service(s) | Status |
-|---:|------------------|------------|--------|
-| 110 | edge-proxy | Tailscale + iptables DNAT | **CURRENT ingress** |
-| 111 | jellyfin | Jellyfin (Docker) | Running |
-| 112 | immich | Immich | Running |
-| 113 | ollama | Ollama backend | Running |
-| 114 | invidious | Invidious + Postgres + Companion | Running |
-| 115 | openwebui | OpenWebUI frontend | Running |
-| 116 | n8n | n8n (Docker) | Running |
-| 117 | synapse | Matrix Synapse | Running |
-| 118 | ombi | Ombi (Docker) | Running (login currently broken; see §9.2) |
+Outside this repo:
 
-Special:
-- A **7 Days to Die** LXC exists and must not be disturbed.
+- A `7dtd` container exists in Proxmox and should not be disturbed by repo cleanup work.
 
----
+## 4. Repository Structure and Semantics
 
-## 4) Repository / IaC layout (CURRENT)
+### 4.1 Core top-level files
 
-### 4.1 Golden playbooks (authoritative)
-- `playbooks/lxc_ssh.yml`  
-  Creates LXCs using **pct/pveam via SSH on Proxmox** (stable & proven).
-- `playbooks/ct_bootstrap.yml`  
-  Fixes “new CT not ready” problems (sudo missing, SSH keys/users missing).
-- `playbooks/base_lxc.yml`  
-  Baseline config for LXCs.
-- `playbooks/docker_host.yml`  
-  Installs/configures Docker on LXCs that need it.
-- `playbooks/pve_docker_lxc_fix.yml`  
-  Proxmox-side LXC config changes required for Docker inside **unprivileged** LXCs.
+- `ansible.cfg`: default inventory path, roles path, SSH pipelining, interpreter detection
+- `README.md`: current operator-facing summary
+- `handovers/USNIVERSE_MASTER_HANDOVER.md`: this file
 
-### 4.2 Deprecated / forbidden
-- Proxmox API module provisioning (`community.proxmox.proxmox` etc.)  
-  **Why:** repeated token weirdness and module behavior inconsistencies.
-- Legacy playbook: `playbooks/lxc.yml`  
-  **Do not use**.
+### 4.2 Inventories and variables
 
----
+- `inventories/home/hosts.yml`
+  - `lxc`: all managed CTs
+  - `docker_lxc`: CTs expected to run Docker workloads
+  - `proxmox`: Proxmox nodes
+- `inventories/home/group_vars/lxc.yml`
+  - logical CT map with sizing, IPs, features, and `proxmox_vmid`
+- `inventories/home/group_vars/proxmox.yml`
+  - Proxmox API and network defaults
+- `inventories/home/host_vars/pve.yml`
+  - node-specific rootfs storage and live Docker CT VMIDs on `pve`
+- `inventories/home/host_vars/servernode.yml`
+  - node-specific rootfs storage and live Docker CT VMIDs on `servernode`
+- `inventories/home/group_vars/lxc/base_lxc.yml`
+  - shared authorized key and admin baseline values
+- `inventories/home/group_vars/lxc/ssh.yml`
+  - ProxyJump settings for LXC access
+- `inventories/home/group_vars/lxc/python.yml`
+  - explicit Python interpreter path for LXCs
 
-## 5) Lifecycle runbook (MANDATORY ORDER)
+### 4.3 Roles
 
-### 5.1 Creating a new LXC (repeatable)
-1) **Create** (Proxmox-side, via SSH `pct`):
-```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/lxc_ssh.yml --limit pve
-```
+- `roles/base_lxc`
+  - Debian 12 baseline, packages, admin user, SSH hardening, standard directories
+- `roles/docker_host`
+  - Docker CE repo + packages + docker group membership
+- `roles/docker_compose_app`
+  - reusable helper for rendering compose files and bringing apps up/down
+- `roles/nas_mount`
+  - bind-mount `Global_Share` from Proxmox into selected LXCs
+- `roles/proxmox_docker_egress`
+  - nft/sysctl-based outbound egress support for Docker subnets on Proxmox
 
-2) **Bootstrap** (ONE TIME per CT; fixes sudo/SSH/admin user):
-```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/ct_bootstrap.yml --limit ctXXX
-```
+### 4.4 Static payloads
 
-3) **Baseline** (packages, hardening, etc.):
-```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/base_lxc.yml --limit ctXXX
-```
+- `files/ct111/jellyfin/docker-compose.yml`
+  - historical or alternate Jellyfin compose asset
+- `files/ct120/comfyui/`
+  - ComfyUI Dockerfile and compose payload copied into CT120
 
-4) **Docker host** (only for Docker-based services):
-```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/docker_host.yml --limit ctXXX
-```
+## 5. Playbook Catalog
 
-### 5.2 Inventory hygiene rules (prevents Ansible parsing failures)
-- Always use file inventory:
+### 5.1 Canonical lifecycle playbooks
+
+- `playbooks/lxc_ssh.yml`
+  - creates CTs on the Proxmox node itself via `pct` and `pveam`
+  - accepts `lxc_target_ids`
+  - supports targeting by logical CT ID or current VMID
+- `playbooks/ct_bootstrap.yml`
+  - bootstraps a brand-new CT via Proxmox `pct exec`
+  - takes `ct_ids`, which are Proxmox VMIDs
+- `playbooks/base_lxc.yml`
+  - applies the `base_lxc` role to the full `lxc` group
+- `playbooks/docker_host.yml`
+  - applies the `docker_host` role to the `docker_lxc` group
+- `playbooks/pve_docker_lxc_fix.yml`
+  - patches Proxmox LXC config for Docker inside unprivileged LXCs
+  - uses node-scoped `docker_lxc_ct_ids` from `host_vars`
+
+### 5.2 Infrastructure and support playbooks
+
+- `playbooks/pve_global_share_mount.yml`
+  - ensures `Global_Share` is mounted on `pve`
+- `playbooks/nas_mount.yml`
+  - uses `roles/nas_mount` to bind `Global_Share` into selected CTs on `pve`
+- `playbooks/pve_ct110_global_share_bind.yml`
+  - ensures CT110 has `/home/ubuntu/Global_Share` bind-mounted from Proxmox
+- `playbooks/pve_docker_egress.yml`
+  - applies Docker egress support on `pve`
+- `playbooks/docker_update_all.yml`
+  - scans `docker_lxc` containers for compose files and runs pull/up
+
+### 5.3 Ingress playbooks
+
+Two ingress playbooks exist:
+
+- `playbooks/edge_proxy_dnat.yml`
+  - parameterized
+  - runs on `pve`
+  - manages CT110 rules via `pct exec`
+  - takes rules from `group_vars/all/edge_proxy_dnat.yml`
+- `playbooks/ct110_ingress.yml`
+  - runs directly against `ct110`
+  - carries its own inline `dnat_rules`
+
+Operationally, `edge_proxy_dnat.yml` is the better source for rule data because it externalizes the rules into `group_vars/all/edge_proxy_dnat.yml`. If both playbooks are kept, their rule sets must stay synchronized.
+
+### 5.4 Application and service playbooks
+
+- `playbooks/app_jellyfin_ct111.yml`
+- `playbooks/app_ollama_ct113.yml`
+- `playbooks/app_openwebui_ct115.yml`
+- `playbooks/app_n8n_ct116.yml`
+- `playbooks/comfyui.yml`
+- `playbooks/app_openclaw_ct121.yml`
+
+### 5.5 Convenience helper playbooks
+
+- `playbooks/base_lxc_ct110.yml`
+- `playbooks/docker_host_ct110.yml`
+
+These are convenience wrappers for CT110 only. They are not the canonical general pattern for the repo.
+
+## 6. Canonical Operational Workflows
+
+Always use the file inventory:
+
 ```bash
 ansible-playbook -i inventories/home/hosts.yml ...
 ```
-- Do **not** pass the directory (`-i inventories/home`) because Ansible will try to parse random backup files.
-- Do **not** store backups inside `inventories/home/`  
-  Put them in something like `inventories/_backups/`.
 
----
+Do not point Ansible at the inventory directory itself.
 
-## 6) Remote access / ProxyJump (CURRENT + GOTCHAS)
+### 6.1 Create a CT
 
-### 6.1 Current topology intent
-When remote:
-- You must be able to reach **pve** and **ct110** reliably.
-- **Do not ProxyJump “pve through pve”** (loop bug seen previously).
+Example:
 
-### 6.2 ProxyJump file (where to look first when SSH breaks)
-A ProxyJump configuration has been stored at:
-- `inventories/home/group_vars/lxc/ssh.yml`
-
-Older content used:
-- `ansible_ssh_common_args: "-o ProxyJump=ubuntu@100.122.95.117,root@100.69.158.73"`
-
-**Important evolution:** the **Tailscale IP `100.122.95.117` is now CT110 (edge-proxy)**, not UbuntuVM2.  
-If SSH “mysteriously” fails, verify:
-- which host currently owns `100.122.95.117`
-- the usernames (ubuntu/admin/root) used for jump hops
-
-**Golden rule:** pve must be reachable directly; jump-host settings must not create loops.
-
----
-
-## 7) Docker inside unprivileged LXC (MOST IMPORTANT TECHNICAL GOTCHA)
-
-### 7.1 Symptoms (what you will see)
-- `OCI runtime create failed`
-- `permission denied: sysctl net.ipv4.ip_unprivileged_port_start`
-- `fuse-overlayfs: device not found`
-- Containers “create” but won’t “start”
-- `docker info` looks fine but runtime fails
-
-### 7.2 Root cause (what is actually happening)
-Unprivileged LXC restricts:
-- overlayfs
-- sysctl/proc/sys interactions
-- device access
-
-Docker falls back to **fuse-overlayfs**, which requires `/dev/fuse` and host module support.
-
-### 7.3 The canonical fix (Proxmox-side)
-On Proxmox:
-- Ensure `fuse` module is loaded and persistent
-- Modify CT config to allow `/dev/fuse` and relax AppArmor/proc/sys
-- **Stop/start the CT** (reboot inside CT is insufficient)
-
-This is automated by:
 ```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/pve_docker_lxc_fix.yml --limit pve
+ansible-playbook -i inventories/home/hosts.yml playbooks/lxc_ssh.yml --limit servernode -e "{\"lxc_target_ids\":[115]}"
 ```
 
-### 7.4 Critical operator requirement
-Every Docker-based CT must be listed in `docker_lxc_ct_ids` in `pve_docker_lxc_fix.yml`.  
-If you forget, Docker will break later and it will look “random”.
+Key semantics:
 
----
+- `lxc_target_ids` may be logical CT IDs or live VMIDs
+- `lxc_ssh.yml` executes on the owning Proxmox node alias (`pve` or `servernode`)
+- CT sizing, IP, features, and placement come from `inventories/home/group_vars/lxc.yml`
 
-## 8) Storage model (CRITICAL)
+### 6.2 Bootstrap a CT for Ansible
 
-### 8.1 NAS / Global_Share rule
-- NFS mount lives **on Proxmox only**:
-  - `/mnt/pve/Global_Share`
-- LXCs get access via **bind mounts**:
+Example:
+
 ```bash
-pct set <CTID> -mp0 /mnt/pve/Global_Share,mp=/mnt/Global_Share
+ansible-playbook -i inventories/home/hosts.yml playbooks/ct_bootstrap.yml --limit servernode -e "{\"ct_ids\":[115]}"
 ```
 
-### 8.2 Absolutely forbidden
-- Mounting NFS inside an LXC (`/etc/fstab` entries, `mount -t nfs`, etc.)
+Important:
 
-**Why this rule exists (past failures):**
-- permission chaos
-- unstable services
-- Proxmox backup hangs / snapshot pain
+- `ct_ids` are Proxmox VMIDs
+- this step is mandatory before `base_lxc.yml` if the CT is truly new
 
----
+### 6.3 Baseline and Docker
 
-## 9) Edge-proxy (CT110) — ingress source of truth
+```bash
+ansible-playbook -i inventories/home/hosts.yml playbooks/base_lxc.yml --limit ct115
+ansible-playbook -i inventories/home/hosts.yml playbooks/docker_host.yml --limit ct115
+ansible-playbook -i inventories/home/hosts.yml playbooks/pve_docker_lxc_fix.yml --limit servernode
+```
 
-### 9.1 What CT110 does
-- Runs Tailscale (`tailscaled`)
-- Owns external access via iptables DNAT
-- Replaces older “UbuntuVM2 forwarding” approach
+### 6.4 Deploy apps
 
-### 9.2 Current DNAT mapping (AUTHORITATIVE)
-Exposed on CT110’s Tailscale IP (`100.122.95.117`):
+Examples:
 
-| External port | Internal destination | Notes |
-|---:|---|---|
+```bash
+ansible-playbook -i inventories/home/hosts.yml playbooks/app_ollama_ct113.yml
+ansible-playbook -i inventories/home/hosts.yml playbooks/app_openwebui_ct115.yml
+ansible-playbook -i inventories/home/hosts.yml playbooks/app_openclaw_ct121.yml
+```
+
+### 6.5 Update all Docker workloads
+
+```bash
+ansible-playbook -i inventories/home/hosts.yml playbooks/docker_update_all.yml
+```
+
+## 7. Docker Inside Unprivileged LXC
+
+This remains the biggest technical gotcha in the repo.
+
+### 7.1 What the repo does
+
+- `playbooks/docker_host.yml`
+  - installs Docker Engine and Compose plugin inside the CT
+- `playbooks/pve_docker_lxc_fix.yml`
+  - patches `/etc/pve/lxc/<vmid>.conf` on the Proxmox host
+  - enables `/dev/fuse`, AppArmor relaxation, proc/sys mount relaxation
+  - restarts the affected CTs
+
+### 7.2 Source of truth for which CTs need the Proxmox fix
+
+The live Docker CT VMIDs are stored per node in:
+
+- `inventories/home/host_vars/pve.yml`
+- `inventories/home/host_vars/servernode.yml`
+
+Those values must reflect real Proxmox VMIDs, not just logical CT names.
+
+### 7.3 GPU-specific handling
+
+CT120 is the only GPU-designated CT in the repo today.
+
+- `playbooks/pve_docker_lxc_fix.yml` applies extra NVIDIA passthrough lines for CT120
+- `playbooks/comfyui.yml` configures the NVIDIA container toolkit inside CT120
+
+### 7.4 Docker egress
+
+`playbooks/pve_docker_egress.yml` currently targets `pve` only and configures:
+
+- `br_netfilter`
+- IPv4 forwarding
+- nftables NAT and forward rules for Docker subnet `172.18.0.0/16`
+
+That is the repo's current implementation, not a generic cluster-wide abstraction.
+
+## 8. Storage Model
+
+### 8.1 Hard rule
+
+Do not mount NFS directly inside unprivileged LXCs.
+
+The intended pattern is:
+
+1. mount `Global_Share` on Proxmox
+2. bind-mount it into selected LXCs
+3. bind-mount subpaths into Docker containers as needed
+
+### 8.2 Repo implementation
+
+- `playbooks/pve_global_share_mount.yml`
+  - ensures the `Global_Share` NFS mount exists on `pve`
+- `playbooks/nas_mount.yml`
+  - bind-mounts the host path into selected LXCs
+  - currently driven by `roles/nas_mount/defaults/main.yml`
+- `playbooks/pve_ct110_global_share_bind.yml`
+  - separately ensures CT110 gets `/home/ubuntu/Global_Share`
+
+### 8.3 Known semantic debt
+
+`roles/nas_mount/defaults/main.yml` still hardcodes `nas_lxc_ct_ids`. That is current behavior, but it is inventory-like data living in role defaults.
+
+## 9. Current Ingress State
+
+`ct110` owns external access.
+
+The parameterized DNAT rules in `group_vars/all/edge_proxy_dnat.yml` currently publish:
+
+| External port | Internal target | Service |
+| ---: | --- | --- |
 | 8096 | `192.168.1.111:8096` | Jellyfin |
 | 3579 | `192.168.1.118:3579` | Ombi |
-| 8008 | `192.168.1.117:8008` | Synapse (Matrix) |
+| 8008 | `192.168.1.117:8008` | Synapse |
 | 5678 | `192.168.1.116:5678` | n8n |
-| 8081 | `192.168.1.115:3000` | OpenWebUI (NOT :8080) |
+| 8081 | `192.168.1.115:3000` | OpenWebUI |
 | 11435 | `192.168.1.113:11434` | Ollama |
 | 4000 | `192.168.1.114:3000` | Invidious |
+| 8188 | `192.168.1.120:8188` | ComfyUI |
+| 18789 | `192.168.1.121:18789` | OpenClaw |
 
-### 9.3 Verification pattern
-Use:
-- `curl http://100.122.95.117:<port>`
-- service-specific health endpoints where available
+The repo also contains a direct CT110 ingress playbook with the same intent.
 
----
-
-## 10) Service runbooks + pitfalls
+## 10. Service-Specific Semantics That Matter
 
 ### 10.1 Jellyfin (CT111)
-**CURRENT:** running and reachable on `:8096`.
 
-**Key lesson:** Jellyfin metadata exploded (~160GB+) and broke backups and migrations.
+- Docker-based
+- deployed with `docker_compose_app`
+- also has a static compose asset at `files/ct111/jellyfin/docker-compose.yml`
+- currently uses host paths under `/opt/jellyfin`, `/data/media`, `/data/transcode`
 
-**Do migrate (from old host):**
-- `config/`
-- `data/data/`
+### 10.2 Ollama (CT113)
 
-**Do NOT migrate:**
-- `data/metadata`
-- `cache/`
-- `transcodes/`
+- Docker-based
+- listens on `192.168.1.113:11434`
+- no models are pulled by the playbook
 
-**Docker-in-LXC note:** Jellyfin Docker only worked after applying the unprivileged-LXC Docker fix (fuse/AppArmor/proc/sys).
+### 10.3 OpenWebUI (CT115)
 
----
+- Docker-based
+- maps `3000:8080`
+- depends on `OLLAMA_BASE_URL=http://192.168.1.113:11434`
+- `ENABLE_PERSISTENT_CONFIG=false` is an intentional determinism choice
 
-### 10.2 Ombi (CT118)
-**CURRENT:** UI loads but **login fails**.
+### 10.4 n8n (CT116)
 
-**Most likely root cause:** config DB set not fully restored; DBs were recreated.
+- Docker-based
+- current playbook writes compose inline rather than using `docker_compose_app`
+- current playbook sets `N8N_SECURE_COOKIE=false`
 
-**Required files to restore from old host (copy entire config dir):**
-- `Ombi.db`
-- `OmbiSettings.db`
-- `OmbiExternal.db`
-- `.aspnet/DataProtection-Keys/` (or equivalent)
+### 10.5 ComfyUI (CT120)
 
-**Ownership requirement:**
-- UID/GID `1000:1000` (linuxserver conventions used elsewhere)
+- Docker-based GPU workload
+- uses local payload from `files/ct120/comfyui/`
+- configures NVIDIA toolkit inside the CT before bringing the compose project up
 
-Until restored properly, login will not succeed.
+### 10.6 OpenClaw (CT121)
 
----
+- Docker-based
+- clones upstream source into the CT
+- builds a local image named `openclaw:local`
+- points at Ollama on `192.168.1.113:11434`
+- publishes `18789` and `18790`, with `18789` exposed through edge-proxy
 
-### 10.3 n8n (CT116)
-**CURRENT:** running on `:5678`.
+### 10.7 Services without dedicated deployment playbooks
 
-**Canonical URL rule (CRITICAL):**  
-n8n must be accessed consistently via one URL that matches:
-- `N8N_HOST`
-- `N8N_EDITOR_BASE_URL`
-- `WEBHOOK_URL`
-- `N8N_PROTOCOL`
+These services are clearly part of the environment but are not fully codified as dedicated app playbooks in this repo yet:
 
-**Common failure symptom:**
-- `Cannot GET /setup`
+- Immich (`ct112`)
+- Invidious (`ct114`)
+- Synapse (`ct117`)
+- Ombi (`ct118`)
+- Immich ML (`ct219`)
 
-**HTTP testing rule:**
-- If using HTTP temporarily:
-  - `N8N_PROTOCOL=http`
-  - `N8N_SECURE_COOKIE=false`
+That is current repo reality, not a documentation omission.
 
-**If using HTTPS later (edge proxy):**
-- switch to `N8N_PROTOCOL=https`
-- `N8N_SECURE_COOKIE=true`
+## 11. Current Documentation Policy
 
----
+The current source of truth is:
 
-### 10.4 Ollama (CT113) + OpenWebUI (CT115)
-**CURRENT:**
-- Ollama listens on `ct113:11434`
-- OpenWebUI maps container `8080` → host `ct115:3000`
-- Edge-proxy forwards `8081` → `ct115:3000`
-- Edge-proxy forwards `11435` → `ct113:11434`
+- `README.md`
+- this master handover
 
-**Port confusion is the #1 failure:**
-- Do NOT forward to `ct115:8080` (that’s container-internal).
-- Forward to `ct115:3000`.
+The other files under `handovers/` are historical snapshots. They are still useful for deep debugging and migration history, but they are not the operational contract for the current repo.
 
-**Determinism choice:**
-- `ENABLE_PERSISTENT_CONFIG=false` so the UI doesn’t override env config.
+## 12. Known Current Gaps and Tradeoffs
 
-**Model policy:**
-- No models installed by default
-- TinyLlama is a small test model (if needed later)
+These are intentional or known aspects of the current repo state:
 
----
+- `ct219` has not yet been renumbered into the `1xx` convention
+- two ingress playbooks exist and represent the same intent in different styles
+- CT110 helper playbooks still exist as convenience wrappers
+- `roles/nas_mount/defaults/main.yml` still stores environment-specific CT IDs
+- `ansible.cfg` currently sets `host_key_checking = False`
+- `ansible.cfg` currently sets `deprecation_warnings = False`
+- older handovers contain valuable history but may be stale on current semantics
 
-### 10.5 Invidious (CT114)
-**CURRENT:** running; docker-compose stack at `/opt/invidious`.
+## 13. Anti-Footguns
 
-**#1 pitfall:** YAML corruption when patching multi-line compose with sed/escaping via multiple shells.
+- Always pass `-i inventories/home/hosts.yml`
+- `ct_bootstrap.yml` takes Proxmox VMIDs, not `ctXXX` inventory names
+- `docker_host.yml` now targets `docker_lxc`, not all LXCs
+- `pve_docker_lxc_fix.yml` must be rerun after adding or renumbering Docker CTs
+- after `pve_docker_lxc_fix.yml`, do not assume a guest reboot is enough; the playbook itself stop/starts the CTs
+- keep edge-proxy published ports aligned with `group_vars/all/edge_proxy_dnat.yml`
+- keep `docker_lxc_ct_ids` aligned with live VMIDs in node `host_vars`
 
-**Rule:**
-- Never patch multi-line YAML with sed one-liners through ansible/pct layers.
-- Use a Python rewrite in-place (deterministic).
+## 14. Historical Troubleshooting Depth
 
-**Policy chosen:**
-- `login_enabled: true`
-- `registration_enabled: true`
-- `captcha_enabled: false`
-- `admins: ["adds666"]`
-- `statistics_enabled: true`
+If a service-specific issue needs migration history or old root-cause details, consult the older handovers:
 
-**Extra Ansible gotcha:**
-- `docker ps --format '{{.Names}}'` breaks because `{{ }}` gets parsed as Jinja.
+- Jellyfin migration and config history
+- Synapse / proxyjump history
+- n8n bootstrap history
+- Invidious patching notes
+- Ollama / OpenWebUI migration history
 
----
-
-### 10.6 Synapse (CT117)
-**CURRENT:** running; exposed on `:8008` through edge-proxy.
-
-Earlier migration had permission issues on data volume; resolved by fixing ownership/permissions.
-
----
-
-## 11) Proxmox backups (lessons learned)
-
-### 11.1 Jellyfin backup hang
-A Jellyfin backup hung for many hours due to:
-- snapshot method
-- large bind mounts / metadata explosion / I/O
-
-**Recommendation:**
-- Avoid backing up huge metadata caches
-- Consider separate volumes or exclude patterns if/when implemented
-- Treat media data as NAS responsibility; back up configs and DBs intentionally
-
----
-
-## 12) “We keep failing on this” — explicit anti-footguns
-
-### 12.1 New CT bootstrap
-**Failure:** `sudo: not found`, `Permission denied (publickey)`  
-**Fix:** always run `ct_bootstrap.yml` before `base_lxc.yml`.
-
-### 12.2 Directory inventory parsing
-**Failure:** Ansible tries to parse backups as inventory → warnings/errors  
-**Fix:** always pass `-i inventories/home/hosts.yml` and keep backups out of `inventories/home/`.
-
-### 12.3 Docker in unprivileged LXC
-**Failure:** OCI errors even though Docker looks installed  
-**Fix:** apply `pve_docker_lxc_fix.yml` and ensure CT IDs are listed.
-
-### 12.4 YAML patching via sed
-**Failure:** compose breaks with `yaml.scanner.ScannerError` due to collapsed newlines/tabs  
-**Fix:** use Python rewrites or full-file heredocs.
-
-### 12.5 ProxyJump loops
-**Failure:** “pve through pve” or wrong jump host after TS move  
-**Fix:** verify current TS owner of `100.122.95.117` (should be CT110 now) and avoid loops.
-
-### 12.6 Jellyfin blind rsync
-**Failure:** moved huge caches/metadata → time + backup pain  
-**Fix:** migrate only minimal config/data; exclude metadata/cache/transcodes.
-
-### 12.7 n8n canonical URL
-**Failure:** Cannot GET /setup, cookie/security errors  
-**Fix:** one canonical URL; set N8N_* accordingly; disable secure cookie on HTTP.
-
-### 12.8 Homepage NAS disk widget (“API error” / “Drive not found”)
-
-**Symptom**
-- Homepage web UI shows an API error or empty values for the NAS disk widget.
-- Logs contain repeated warnings:
-warn: <resources> Drive not found for target: /home/ubuntu/Global_Share
-
-
-**Root cause (IMPORTANT)**
-This was caused by confusing a **Proxmox Storage definition** with an **active Linux filesystem mount**.
-
-- Seeing `Global_Share` under *Datacenter → Storage* in the Proxmox UI **does NOT guarantee** that
-`/mnt/pve/Global_Share` is mounted at all times on the host.
-- Proxmox may mount NFS storage **on demand** (e.g. during backups) and unmount it afterwards.
-- Homepage’s Resources/Disk widget does a normal Linux filesystem check on the target path inside the container.
-If the path is just an empty directory (not an NFS mount), Homepage cannot map it to a drive and warns.
-
-**Canonical working configuration (CURRENT – do not diverge)**
-
-- Proxmox storage:
-nfs: Global_Share
-server 192.168.1.84
-export /volume1/Global_Share
-path /mnt/pve/Global_Share
-
-
-- Proxmox host (`/etc/fstab`) MUST contain:
-192.168.1.84:/volume1/Global_Share /mnt/pve/Global_Share nfs vers=3,rw,hard,timeo=600,retrans=2,_netdev 0 0
-
-
-- CT110 bind mount (`/etc/pve/lxc/110.conf`):
-mp0: /mnt/pve/Global_Share,mp=/home/ubuntu/Global_Share,backup=0
-
-
-- Homepage docker-compose (on CT110):
-volumes:
-- /home/ubuntu/Global_Share:/home/ubuntu/Global_Share:ro
-
-
-**Verification checklist (in order)**
-1. On Proxmox host:
-findmnt -T /mnt/pve/Global_Share
-
-Must show `nfs` (not ext4, not empty).
-
-2. Inside CT110:
-df -hT /home/ubuntu/Global_Share
-
-Must show NAS size (≈10.5T), not the CT root disk.
-
-3. Inside Homepage container:
-docker exec homepage df -hT /home/ubuntu/Global_Share
-
-Must show the same NFS filesystem.
-
-**Operational notes / gotchas**
-- `docker logs --tail` includes historical warnings. Use:
-docker logs --since 3m homepage
-
-to confirm whether the issue is still occurring.
-- Restart CTs using:
-pct stop <id>; pct start <id>
-
-Do NOT assume `pct restart` exists on all Proxmox versions.
-- When running remote SSH commands from `rog_ubuntu`, avoid local variable expansion.
-Use a heredoc pattern:
-ssh root@PVE 'bash -s' <<'BASH'
-...
-BASH
-
-
-**Design rule (do not break)**
-- NAS mounts belong to **Proxmox**, not inside LXCs.
-- LXCs receive NAS access ONLY via bind mounts (`mpX:`).
-- Containers receive NAS access ONLY via docker bind mounts.
-
----
-
-## 13) History of major changes (why earlier docs differ)
-
-### 13.1 Proxmox API provisioning → SSH pct provisioning
-Earlier attempts used Proxmox API modules and failed repeatedly (token mangling / inconsistent module behavior).  
-**Final decision:** use `pct` + `pveam` via SSH. Stable and proven.
-
-### 13.2 UbuntuVM2 ingress → CT110 edge-proxy ingress
-Earlier setup forwarded ports on UbuntuVM2.  
-**Final decision:** move Tailscale + DNAT to CT110 to:
-- reduce device count issues
-- simplify topology
-- centralise ingress
-
-### 13.3 CT role naming drift
-Some handovers list CT114 as “homepage” or CT115 as “n8n”.  
-**Final correction:** CT114 is **Invidious**, CT115 is **OpenWebUI**, CT116 is **n8n**, matching service-specific handovers and DNAT mappings.
-
-### 13.4 Debian 12 target vs current reality
-Original design constraint: Debian 12 LXCs.  
-Some CTs may have been created as Ubuntu during early migration pressure (e.g., Jellyfin handover explicitly notes Ubuntu inside CT111).  
-**Target remains:** converge to Debian 12 over time, but do not destabilise working services just to “standardise”.
-
----
-
-## 14) Current priority TODOs (safe next steps)
-
-1. **Fix Ombi login** by restoring the full config directory DB set + keys.
-2. **Migrate Homepage** (still pending; decide CT target and integrate behind edge-proxy).
-3. **Plan Jellyfin minimal config migration** (LAN-only, deliberate excludes).
-4. Add missing baseline packages (e.g., rsync) to `base_lxc` if still needed.
-5. Remove any remaining reliance on deprecated UbuntuVM2 once data migrations are done.
-
----
-
-## 15) Appendix — quick reference snippets
-
-### 15.1 “If Docker is broken in an LXC”
-Checklist:
-- Is CT listed in `docker_lxc_ct_ids`?
-- Did we run `pve_docker_lxc_fix.yml`?
-- Did we **stop/start** the CT after config change?
-- Does `/dev/fuse` exist inside CT?
-- Is Docker using `fuse-overlayfs` (expected)?
-
-### 15.2 “If Ansible can’t SSH to a CT”
-Checklist:
-- Is ProxyJump correct and not looping?
-- Did `ct_bootstrap.yml` run?
-- Is the admin user created and key installed?
-- Is `sudo` installed?
-
-### 15.3 “If YAML/compose broke after a ‘small patch’”
-Assume sed/newline corruption.  
-Prefer:
-- full-file rewrite with heredoc, or
-- Python script rewrite in-place.
-
----
-
-# END
-This file is the canonical handover for Usniverse.
-
----
-
-## Jellyfin – Playback Failure Root Cause & Fix (CT111)
-
-### Symptoms
-- Jellyfin UI loads
-- Libraries visible
-- Playback fails immediately
-- Logs show ffmpeg errors (e.g. “FFmpeg exited with code 254” and/or “No such file or directory”)
-
-### Root Cause
-This was NOT an ffmpeg, permissions, or transcode issue.
-
-It was a PATH MISMATCH between Jellyfin library paths and the actual NAS directory layout.
-
-Actual NAS layout:
-- /mnt/Global_Share/Media/
-  - Movies/
-    - Feature Film/
-    - TV Series/
-  - Music/
-
-Broken configuration (old):
-- Mounted /mnt/Global_Share/Media -> /media
-- Jellyfin TV library pointed at /media/TV Series
-- But /media/TV Series does NOT exist
-- Actual TV path was /media/Movies/TV Series
-
-Result:
-- Jellyfin tried to play files at /media/TV Series/... that were not present
-- ffmpeg then fails opening input (looks like “ffmpeg problem”, but it’s just wrong paths)
-
-### Correct & Durable Fix
-Mount directories to match Jellyfin’s expected library paths.
-Do NOT use nested mounts or symlinks as the permanent solution.
-
-Final container mounts (read-only):
-- /mnt/Global_Share/Media/Movies -> /media:ro
-- /mnt/Global_Share/Media/Music  -> /music:ro
-
-This provides:
-- /media/TV Series/... ✅
-- /media/Feature Film/... ✅
-- /music/... ✅
-
-### Explicit Warnings (Do NOT Do This)
-- Do NOT mount /mnt/Global_Share/Media directly to /media if Jellyfin expects /media/TV Series
-- Do NOT mount a subpath into a directory that is already a read-only mount (Docker cannot create mountpoints inside RO FS)
-- Do NOT rely on symlinks inside read-only mounts except as a temporary diagnostic step
-
-### Verification Commands (remote-safe)
-- docker exec jellyfin ls -lah /media
-- docker exec jellyfin ls -lah "/media/TV Series"
-- docker exec jellyfin ls -lah "/media/Feature Film"
-- docker exec jellyfin ls -lah /music
-- docker logs jellyfin --tail=200
-
-Playback should succeed immediately after container recreation.
-
----
-
-## Operational Rule – Remote / Buffer-Safe CLI Usage (MANDATORY)
-
-When operating remotely or over SSH with limited terminal buffers:
-
-- Use single, self-contained command blocks
-- Do NOT use interactive editors (nano/vi)
-- Avoid complex nested quoting; prefer robust patterns (e.g. env vars, simple awk extraction)
-- Prefer Python+YAML for deterministic config edits
-- Avoid nested mounts and implicit directory creation inside containers
-
-All future handover instructions MUST follow this rule.
-
-
-### (Fix) Correct media paths this configuration provides
-With the final mounts:
-- /mnt/Global_Share/Media/Movies -> /media:ro
-- /mnt/Global_Share/Media/Music  -> /music:ro
-
-The container paths provided are:
-- /media/TV Series/...          (maps to NAS: Media/Movies/TV Series)
-- /media/Feature Film/...       (maps to NAS: Media/Movies/Feature Film)
-- /music/...                    (maps to NAS: Media/Music)
-
-
----
-
-## CT111 – Startup failure after resizing (mp1 host path missing)
-
-### Symptom
-`pct start 111 --debug` failed with:
-- `Failed to run lxc.hook.pre-start`
-- `directory '/opt/jellyfin/config/cache' does not exist`
-
-### Root Cause
-CT111 had:
-- `mp1: /opt/jellyfin/config/cache,mp=/opt/jellyfin/config/cache,backup=0`
-
-The source path is on the Proxmox host. If it does not exist, the pre-start hook aborts and the container will not start.
-
-### Fix
-mp1 was removed (it was not present in IaC repo sources, only in /etc/pve/lxc/111.conf).
-
-If mp1 is ever reintroduced, ensure the host source directory exists first:
-- `mkdir -p /opt/jellyfin/config/cache`
-
-
----
-
-## Jellyfin (CT111) – Media mounts + metadata egress (Jan 2026)
-
-### Playback fix: make library paths match NAS layout
-Symptoms:
-- Jellyfin attempted to open files under `/media/TV Series/...`
-- ffmpeg failed because `/media/TV Series` didn’t exist in-container
-
-Root cause:
-- NAS layout is nonstandard: TV Series lives under:
-  `/mnt/Global_Share/Media/Movies/TV Series/`
-
-Fix:
-- Mount Movies to `/media` and Music to `/music`:
-  - `/mnt/Global_Share/Media/Movies:/media:ro`
-  - `/mnt/Global_Share/Media/Music:/music:ro`
-- Do NOT mount `/mnt/Global_Share/Media:/media:ro` (breaks expected layout)
-
-Repo source-of-truth:
-- `files/ct111/jellyfin/docker-compose.yml`
-
-### Metadata/posters fix: container had no internet
-Symptoms:
-- Library scan finds items but no posters/metadata
-- `docker exec jellyfin curl https://api.themoviedb.org` timed out
-
-Root cause:
-- Docker-in-LXC egress required NAT/forward rules on the *Proxmox host*
-  that runs CT111 (not CT110 / edge proxy)
-
-Fix on Proxmox host:
-- Enable `net.ipv4.ip_forward=1`
-- Enable `br_netfilter` and bridge sysctls:
-  - `net.bridge.bridge-nf-call-iptables=1` (and ip6/arptables)
-- Add nftables rules (example docker subnet was `172.18.0.0/16`):
-  - NAT postrouting masquerade out `vmbr0`
-  - Forward allow `172.18.0.0/16` and established/related return
-
-Validation:
-- After fix, container `curl -4 -I https://api.themoviedb.org` returned HTTP 301.
-
-### After internet restored: force artwork refresh
-Jellyfin UI:
-- Dashboard → Libraries → (each library) → Refresh metadata
-  - Replace all metadata
-  - Replace existing images
-  - Search for missing metadata
-- Dashboard → Scheduled Tasks → run library/metadata tasks as needed
-
-### Resource notes
-Artwork/cache can grow `/opt/jellyfin/config` (esp cache).
-CT111 at time of debug:
-- rootfs: 256G
-- memory: 2G
-
-# Power Control & Usage Visibility (Edge‑Proxy ↔ ServerNode)
-
-> **Purpose**
-> This document captures the *current, working* implementation for:
-
-* Wake‑on‑LAN (WOL)
-* Remote shutdown
-* Homepage UI controls (Wake / Shutdown)
-* LAN + Tailscale–restricted webhook
-
-This exists **before Ansible** so future automation does not re‑discover solved problems.
-
----
-
-## Architecture Overview
-
-```
-[ Homepage UI ]
-       |
-       v
-[ Edge‑Proxy ]
-  - wol‑webhook (python + systemd)
-  - nftables (LAN + tailscale0)
-       |
-       v
-[ ServerNode ]
-  - WOL enabled on NIC (eno2)
-  - SSH forced command for shutdown
-```
-
----
-
-## Nodes
-
-| Host       | Role         | IP            |
-| ---------- | ------------ | ------------- |
-| edge‑proxy | Control      | 192.168.1.110 |
-| servernode | Power Target | 192.168.1.104 |
-
----
-
-## Wake‑on‑LAN (ServerNode)
-
-### NIC
-
-* Interface: `eno2`
-* MAC: `0c:c4:7a:ca:24:2b`
-* WOL mode: `g`
-
-### Persistent systemd unit
-
-File:
-
-```
-/etc/systemd/system/wol-eno2.service
-```
-
-Purpose: ensure WOL survives reboot / shutdown.
-
----
-
-## Shutdown Mechanism (ServerNode)
-
-### User
-
-* `edge-shutdown`
-* Shell: `/bin/bash` (shell disabled by sshd ForceCommand)
-
-### sshd Match block
-
-File:
-
-```
-/etc/ssh/sshd_config.d/99-edge-shutdown.conf
-```
-
-```
-Match User edge-shutdown
-    ForceCommand sudo /sbin/poweroff
-    PermitTTY no
-    AllowTcpForwarding no
-    X11Forwarding no
-```
-
-### sudoers
-
-File:
-
-```
-/etc/sudoers.d/edge-shutdown
-```
-
-```
-edge-shutdown ALL=(root) NOPASSWD: /sbin/poweroff
-```
-
-> **Why:** polkit blocks non‑root shutdown; sudo is the clean escalation.
-
----
-
-## Edge‑Proxy Webhook
-
-### Location
-
-```
-/opt/wol-webhook/server.py
-```
-
-### Endpoints
-
-| Path        | Method   | Function        |
-| ----------- | -------- | --------------- |
-| `/wol`      | GET/POST | Send WOL packet |
-| `/shutdown` | GET/POST | SSH → poweroff  |
-
-### Environment
-
-File:
-
-```
-/etc/wol-webhook/env
-```
-
-```
-WOL_PORT=8787
-WOL_TOKEN=***
-```
-
-### systemd service
-
-```
-/etc/systemd/system/wol-webhook.service
-```
-
----
-
-## Firewall (Edge‑Proxy)
-
-### nftables table
-
-```
-/etc/nftables.d/wol-webhook.nft
-```
-
-Allows:
-
-* localhost
-* LAN: `192.168.1.0/24`
-* Tailscale: `iifname "tailscale0"`
-
-Blocks everything else to port `8787`.
-
----
-
-## Homepage Integration
-
-### Config path
-
-Host path:
-
-```
-/opt/homepage/config/services.yaml
-```
-
-### Server Control tiles
-
-```
-- Server Control:
-    - Wake ServerNode:
-        icon: mdi-power
-        href: http://192.168.1.110:8787/wol?token=...
-        ping: 192.168.1.104
-
-    - Shutdown ServerNode:
-        icon: mdi-power-off
-        href: http://192.168.1.110:8787/shutdown?token=...
-        ping: 192.168.1.104
-```
-
----
-
-## Known Pitfalls (DO NOT REPEAT)
-
-* ❌ Editing Homepage YAML with duplicate groups breaks UI silently
-* ❌ Relying on `authorized_keys command=` alone (sshd ignored it)
-* ❌ Using `nologin` shell for forced‑command users
-* ❌ Forgetting sudo for shutdown → polkit denial
-* ❌ Binding webhook without firewall rules
-
----
-
-## Next Steps (Ansible)
-
-This setup is now **stable** and ready to be automated.
-
-Recommended Ansible split:
-
-1. `role: wol_servernode`
-
-   * enable WOL
-   * install systemd unit
-
-2. `role: shutdown_servernode`
-
-   * user + sudoers
-   * sshd Match block
-
-3. `role: wol_webhook_edge`
-
-   * python script
-   * systemd service
-   * env file
-
-4. `role: firewall_edge`
-
-   * nftables rules
-
-5. `role: homepage_services`
-
-   * render services.yaml
-
----
-
-> **Status:** Working, tested end‑to‑end (LAN + Tailscale)
+Use those as historical references only. Do not treat them as the current state contract.

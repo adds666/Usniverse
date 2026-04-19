@@ -1,7 +1,0 @@
----
-- name: Apply docker_host to service containers
-  hosts: ct111:ct112:ct113
-  become: true
-  gather_facts: true
-  roles:
-    - docker_host

@@ -2,6 +2,9 @@
 
 
 ## Port forwarding on UbuntuVM2 (friends access now, edge-proxy later)
+> Historical snapshot: superseded by `handovers/USNIVERSE_MASTER_HANDOVER.md`.
+> Keep for migration/debug history only. If it conflicts with current docs, the master handover wins.
+
 Goal: friends hit UbuntuVM2, UbuntuVM2 forwards TCP ports to CTs.
 
 Forwarded services:

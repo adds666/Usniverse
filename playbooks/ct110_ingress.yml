@@ -14,6 +14,7 @@
       - { ext_port: 8081, dst_host: "192.168.1.115", dst_port: 3000, desc: "OpenWebUI" }
       - { ext_port: 11435, dst_host: "192.168.1.113", dst_port: 11434, desc: "Ollama" }
       - { ext_port: 4000, dst_host: "192.168.1.114", dst_port: 3000, desc: "Invidious" }
+      - { ext_port: 8188, dst_host: "192.168.1.120", dst_port: 8188, desc: "ComfyUI" }
       - { ext_port: 18789, dst_host: "192.168.1.121", dst_port: 18789, desc: "OpenClaw" }
 
   tasks:

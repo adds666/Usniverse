@@ -1,4 +1,5 @@
 ---
-# CTs (192.168.1.x) are reached via:
-# edge-proxy (ct110 tailscale) -> pve (tailscale) -> CT (LAN)
+# ProxyJump for LXC access when working remotely.
+# Path is: local workstation -> ct110 tailscale -> Proxmox node -> target CT on LAN.
+# This file applies to the `lxc` group only, not to the `proxmox` hosts themselves.
 ansible_ssh_common_args: "-o ProxyJump=admin@100.122.95.117,root@100.69.158.73"

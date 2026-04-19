@@ -4,6 +4,9 @@ Date: 2026-01-19
 Project: Usniverse  
 Context: Repeated failures when onboarding new LXCs (SSH + sudo), fixed permanently.
 
+> Historical snapshot: superseded by `handovers/USNIVERSE_MASTER_HANDOVER.md`.
+> Keep for migration/debug history only. If it conflicts with current docs, the master handover wins.
+
 ---
 
 ## Purpose of this handover

@@ -4,6 +4,9 @@ Date: 2026-01-18
 Scope: AI services (Ollama backend + OpenWebUI frontend), networking, security decisions  
 Audience: Future ChatGPT agents or humans continuing this repo
 
+> Historical snapshot: superseded by `handovers/USNIVERSE_MASTER_HANDOVER.md`.
+> Keep for migration/debug history only. If it conflicts with current docs, the master handover wins.
+
 ---
 
 ## 1. Purpose of this handover
