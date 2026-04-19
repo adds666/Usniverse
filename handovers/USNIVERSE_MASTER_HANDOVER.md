@@ -52,7 +52,7 @@ Important:
 
 | CT | Hostname | Node | VMID | IP | Docker | Dedicated app playbook | Notes |
 | ---: | --- | --- | ---: | --- | --- | --- | --- |
-| 110 | edge-proxy | `pve` | 110 | `192.168.1.110` | no | no | ingress, Tailscale, DNAT |
+| 110 | edge-proxy | `pve` | 110 | `192.168.1.110` | yes | no | ingress, Tailscale, DNAT, existing Homepage Docker host |
 | 111 | jellyfin | `pve` | 111 | `192.168.1.111` | yes | yes | app playbook plus static compose asset |
 | 112 | immich | `pve` | 112 | `192.168.1.112` | yes | no | infra represented, app playbook absent |
 | 113 | ollama | `servernode` | 113 | `192.168.1.113` | yes | yes | renumbered from `213` |
@@ -61,6 +61,7 @@ Important:
 | 116 | n8n | `pve` | 116 | `192.168.1.116` | yes | yes | playbook writes compose inline |
 | 117 | synapse | `pve` | 117 | `192.168.1.117` | yes | no | service known, playbook absent |
 | 118 | ombi | `pve` | 118 | `192.168.1.118` | yes | no | service known, playbook absent |
+| 119 | searxng | `pve` | 119 | `192.168.1.119` | yes | yes | dedicated web search backend for Open WebUI and Homepage |
 | 120 | comfyui | `servernode` | 120 | `192.168.1.120` | yes | yes | GPU-enabled workload |
 | 121 | openclaw | `servernode` | 121 | `192.168.1.121` | yes | yes | builds local image from upstream repo |
 | 219 | immich-ml | `servernode` | 219 | `192.168.1.219` | yes | no | still intentionally `219` |
@@ -91,6 +92,8 @@ Outside this repo:
   - node-specific rootfs storage and live Docker CT VMIDs on `pve`
 - `inventories/home/host_vars/servernode.yml`
   - node-specific rootfs storage and live Docker CT VMIDs on `servernode`
+- `inventories/home/host_vars/ct110.yml`
+  - assumptions about the existing Homepage container on CT110
 - `inventories/home/group_vars/lxc/base_lxc.yml`
   - shared authorized key and admin baseline values
 - `inventories/home/group_vars/lxc/ssh.yml`
@@ -149,6 +152,8 @@ Outside this repo:
   - applies Docker egress support on `pve`
 - `playbooks/docker_update_all.yml`
   - scans `docker_lxc` containers for compose files and runs pull/up
+- `playbooks/homepage_ct110.yml`
+  - updates the existing Homepage config on CT110 with SearXNG search and AI links
 
 ### 5.3 Ingress playbooks
 
@@ -171,6 +176,7 @@ Operationally, `edge_proxy_dnat.yml` is the better source for rule data because 
 - `playbooks/app_ollama_ct113.yml`
 - `playbooks/app_openwebui_ct115.yml`
 - `playbooks/app_n8n_ct116.yml`
+- `playbooks/app_searxng_ct119.yml`
 - `playbooks/comfyui.yml`
 - `playbooks/app_openclaw_ct121.yml`
 
@@ -233,6 +239,8 @@ Examples:
 ```bash
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_ollama_ct113.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_openwebui_ct115.yml
+ansible-playbook -i inventories/home/hosts.yml playbooks/app_searxng_ct119.yml
+ansible-playbook -i inventories/home/hosts.yml playbooks/homepage_ct110.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_openclaw_ct121.yml
 ```
 
@@ -327,41 +335,62 @@ The parameterized DNAT rules in `group_vars/all/edge_proxy_dnat.yml` currently p
 
 The repo also contains a direct CT110 ingress playbook with the same intent.
 
+Homepage itself is assumed to already exist on CT110. The repo does not currently claim to own its full deployment; it only owns the SearXNG-oriented config injected by `playbooks/homepage_ct110.yml`.
+
 ## 10. Service-Specific Semantics That Matter
 
-### 10.1 Jellyfin (CT111)
+### 10.0 Edge Proxy / Homepage (CT110)
+
+- CT110 is now a Docker host in repo terms and is included in `docker_lxc`
+- Homepage is assumed to already exist there as a Docker container
+- `playbooks/homepage_ct110.yml` injects the managed SearXNG search widget and AI service links
+- `inventories/home/host_vars/ct110.yml` is where to change:
+  - `homepage_config_dir`
+  - `homepage_container_name`
+
+### 10.1 SearXNG (CT119)
+
+- Docker-based
+- deployed with `playbooks/app_searxng_ct119.yml`
+- listens on `192.168.1.119:8080`
+- settings explicitly enable JSON search results for Open WebUI
+- intended as the dedicated web-search backend for Open WebUI and Homepage
+
+### 10.2 Jellyfin (CT111)
 
 - Docker-based
 - deployed with `docker_compose_app`
 - also has a static compose asset at `files/ct111/jellyfin/docker-compose.yml`
 - currently uses host paths under `/opt/jellyfin`, `/data/media`, `/data/transcode`
 
-### 10.2 Ollama (CT113)
+### 10.3 Ollama (CT113)
 
 - Docker-based
 - listens on `192.168.1.113:11434`
 - no models are pulled by the playbook
 
-### 10.3 OpenWebUI (CT115)
+### 10.4 OpenWebUI (CT115)
 
 - Docker-based
 - maps `3000:8080`
 - depends on `OLLAMA_BASE_URL=http://192.168.1.113:11434`
+- now enables built-in web search against `http://192.168.1.119:8080/search?q=<query>`
 - `ENABLE_PERSISTENT_CONFIG=false` is an intentional determinism choice
+- because the relevant web-search settings are PersistentConfig values in Open WebUI, keeping persistent config disabled is what makes the Ansible-managed environment authoritative
 
-### 10.4 n8n (CT116)
+### 10.5 n8n (CT116)
 
 - Docker-based
 - current playbook writes compose inline rather than using `docker_compose_app`
 - current playbook sets `N8N_SECURE_COOKIE=false`
 
-### 10.5 ComfyUI (CT120)
+### 10.6 ComfyUI (CT120)
 
 - Docker-based GPU workload
 - uses local payload from `files/ct120/comfyui/`
 - configures NVIDIA toolkit inside the CT before bringing the compose project up
 
-### 10.6 OpenClaw (CT121)
+### 10.7 OpenClaw (CT121)
 
 - Docker-based
 - clones upstream source into the CT
@@ -369,7 +398,7 @@ The repo also contains a direct CT110 ingress playbook with the same intent.
 - points at Ollama on `192.168.1.113:11434`
 - publishes `18789` and `18790`, with `18789` exposed through edge-proxy
 
-### 10.7 Services without dedicated deployment playbooks
+### 10.8 Services without dedicated deployment playbooks
 
 These services are clearly part of the environment but are not fully codified as dedicated app playbooks in this repo yet:
 

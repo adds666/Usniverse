@@ -25,7 +25,7 @@ The inventory uses host aliases (`pve`, `servernode`) for Ansible. The actual Pr
 
 | CT | Hostname | Node | IP | Docker | Dedicated app playbook |
 | ---: | --- | --- | --- | --- | --- |
-| 110 | edge-proxy | `pve` | `192.168.1.110` | no | no |
+| 110 | edge-proxy | `pve` | `192.168.1.110` | yes | no |
 | 111 | jellyfin | `pve` | `192.168.1.111` | yes | yes |
 | 112 | immich | `pve` | `192.168.1.112` | yes | no |
 | 113 | ollama | `servernode` | `192.168.1.113` | yes | yes |
@@ -34,6 +34,7 @@ The inventory uses host aliases (`pve`, `servernode`) for Ansible. The actual Pr
 | 116 | n8n | `pve` | `192.168.1.116` | yes | yes |
 | 117 | synapse | `pve` | `192.168.1.117` | yes | no |
 | 118 | ombi | `pve` | `192.168.1.118` | yes | no |
+| 119 | searxng | `pve` | `192.168.1.119` | yes | yes |
 | 120 | comfyui | `servernode` | `192.168.1.120` | yes | yes |
 | 121 | openclaw | `servernode` | `192.168.1.121` | yes | yes |
 | 219 | immich-ml | `servernode` | `192.168.1.219` | yes | no |
@@ -80,6 +81,7 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 - `playbooks/docker_update_all.yml`: update Docker Compose projects across `docker_lxc`
 - `playbooks/edge_proxy_dnat.yml`: variable-driven DNAT management for `ct110` via Proxmox `pct exec`
 - `playbooks/ct110_ingress.yml`: direct-on-CT110 DNAT playbook with an inline rules list
+- `playbooks/homepage_ct110.yml`: update the existing Homepage container on CT110 with SearXNG search and AI service links
 
 ### App and service deployment
 
@@ -87,6 +89,7 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 - `playbooks/app_ollama_ct113.yml`
 - `playbooks/app_openwebui_ct115.yml`
 - `playbooks/app_n8n_ct116.yml`
+- `playbooks/app_searxng_ct119.yml`
 - `playbooks/comfyui.yml`
 - `playbooks/app_openclaw_ct121.yml`
 
@@ -133,6 +136,8 @@ ansible-playbook -i inventories/home/hosts.yml playbooks/pve_docker_lxc_fix.yml 
 
 ```bash
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_openwebui_ct115.yml
+ansible-playbook -i inventories/home/hosts.yml playbooks/app_searxng_ct119.yml
+ansible-playbook -i inventories/home/hosts.yml playbooks/homepage_ct110.yml
 ```
 
 ## Networking and Ingress
@@ -154,6 +159,16 @@ That rule set currently publishes:
 - Invidious `4000`
 - ComfyUI `8188`
 - OpenClaw `18789`
+
+CT110 already hosts Homepage in Docker, but the repo only manages the SearXNG-related Homepage config on that container rather than owning the full Homepage deployment.
+
+Open WebUI is wired to SearXNG with:
+
+- `ENABLE_WEB_SEARCH=true`
+- `WEB_SEARCH_ENGINE=searxng`
+- `SEARXNG_QUERY_URL=http://192.168.1.119:8080/search?q=<query>`
+
+Homepage is updated by `playbooks/homepage_ct110.yml`, which assumes the existing Homepage container on CT110 is named `homepage` and keeps its config in `/opt/homepage/config`. Those assumptions live in `inventories/home/host_vars/ct110.yml`.
 
 ## Storage Model
 

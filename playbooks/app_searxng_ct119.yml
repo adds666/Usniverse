@@ -1,0 +1,67 @@
+---
+- name: Deploy SearXNG on ct119 for Open WebUI and Homepage
+  hosts: ct119
+  become: true
+  gather_facts: true
+
+  vars:
+    searxng_app_dir: /opt/searxng
+    searxng_config_dir: /opt/searxng/config
+    searxng_data_dir: /opt/searxng/data
+
+  tasks:
+    - name: Ensure SearXNG directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+      loop:
+        - "{{ searxng_app_dir }}"
+        - "{{ searxng_config_dir }}"
+        - "{{ searxng_data_dir }}"
+
+    - name: Write SearXNG settings
+      ansible.builtin.copy:
+        dest: "{{ searxng_config_dir }}/settings.yml"
+        owner: admin
+        group: admin
+        mode: "0644"
+        backup: true
+        content: |
+          use_default_settings: true
+
+          general:
+            instance_name: "Usniverse Search"
+
+          search:
+            safe_search: 0
+            autocomplete: ""
+            formats:
+              - html
+              - json
+
+          server:
+            secret_key: "usniverse-searxng-ct119"
+            limiter: true
+            image_proxy: true
+
+    - name: Deploy SearXNG via docker_compose_app
+      ansible.builtin.include_role:
+        name: docker_compose_app
+      vars:
+        docker_compose_app_name: searxng
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_compose_yml: |
+          services:
+            searxng:
+              image: docker.io/searxng/searxng:latest
+              container_name: searxng
+              ports:
+                - "8080:8080"
+              volumes:
+                - /opt/searxng/config:/etc/searxng
+                - /opt/searxng/data:/var/cache/searxng
+              restart: unless-stopped

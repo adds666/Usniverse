@@ -1,8 +1,10 @@
 lxc_rootfs_storage: local-lvm
 docker_lxc_ct_ids:
+  - 110
   - 111
   - 112
   - 114
   - 116
   - 117
   - 118
+  - 119

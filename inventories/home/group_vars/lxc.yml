@@ -8,9 +8,11 @@ lxc_map:
     hostname: edge-proxy
     ip: 192.168.1.110/24
     cores: 1
-    memory: 512
+    memory: 1024
     disk_gb: 8
-    features: []
+    features:
+      - nesting=1
+      - keyctl=1
   - id: 111
     proxmox_vmid: 111
     node: pve
@@ -95,6 +97,17 @@ lxc_map:
     ip: 192.168.1.118/24
     cores: 1
     memory: 1024
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 119
+    proxmox_vmid: 119
+    node: pve
+    hostname: searxng
+    ip: 192.168.1.119/24
+    cores: 2
+    memory: 2048
     disk_gb: 16
     features:
       - nesting=1

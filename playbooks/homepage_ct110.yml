@@ -1,0 +1,62 @@
+---
+- name: Configure existing Homepage on ct110 to use ct119 SearXNG
+  hosts: ct110
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Ensure Homepage config directory exists
+      ansible.builtin.file:
+        path: "{{ homepage_config_dir }}"
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+
+    - name: Ensure Homepage widgets.yaml contains SearXNG search widget
+      ansible.builtin.blockinfile:
+        path: "{{ homepage_config_dir }}/widgets.yaml"
+        create: true
+        backup: true
+        marker: "# {mark} USNIVERSE MANAGED SEARCH WIDGET"
+        insertafter: EOF
+        block: |
+          - search:
+              provider: custom
+              url: http://{{ hostvars['ct119'].ansible_host }}:8080/search?q=
+              target: _blank
+      register: homepage_widgets
+
+    - name: Ensure Homepage services.yaml contains AI search entries
+      ansible.builtin.blockinfile:
+        path: "{{ homepage_config_dir }}/services.yaml"
+        create: true
+        backup: true
+        marker: "# {mark} USNIVERSE MANAGED AI SEARCH GROUP"
+        insertafter: EOF
+        block: |
+          - AI Search:
+              - SearXNG:
+                  href: "http://{{ hostvars['ct119'].ansible_host }}:8080"
+                  description: Dedicated search engine for Open WebUI and Homepage
+
+              - Open WebUI:
+                  href: "http://{{ hostvars['ct115'].ansible_host }}:3000"
+                  description: Chat UI backed by Ollama and SearXNG
+
+              - Ollama:
+                  href: "http://{{ hostvars['ct113'].ansible_host }}:11434/api/version"
+                  description: Local LLM API
+      register: homepage_services
+
+    - name: Check if Homepage container exists
+      ansible.builtin.command: docker container inspect {{ homepage_container_name }}
+      register: homepage_container
+      failed_when: false
+      changed_when: false
+
+    - name: Restart Homepage container after config changes
+      ansible.builtin.command: docker restart {{ homepage_container_name }}
+      when:
+        - homepage_container.rc == 0
+        - homepage_widgets is changed or homepage_services is changed

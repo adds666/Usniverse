@@ -1,5 +1,4 @@
----
-- name: Deploy Open WebUI on ct115 (separate LXC; no GPU)
+- name: Deploy Open WebUI on ct115 (separate LXC; ct119-backed web search)
   hosts: ct115
   become: true
   gather_facts: true
@@ -18,8 +17,14 @@
               image: ghcr.io/open-webui/open-webui:main
               container_name: openwebui
               environment:
-                - OLLAMA_BASE_URL=http://192.168.1.113:11434
+                - OLLAMA_BASE_URL=http://{{ hostvars['ct113'].ansible_host }}:11434
                 - ENABLE_PERSISTENT_CONFIG=false
+                - ENABLE_WEB_SEARCH=true
+                - WEB_SEARCH_ENGINE=searxng
+                - WEB_SEARCH_RESULT_COUNT=5
+                - WEB_SEARCH_CONCURRENT_REQUESTS=1
+                - WEB_LOADER_CONCURRENT_REQUESTS=2
+                - SEARXNG_QUERY_URL=http://{{ hostvars['ct119'].ansible_host }}:8080/search?q=<query>
               ports:
                 - "3000:8080"
               volumes:
