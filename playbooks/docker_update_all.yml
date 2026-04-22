@@ -18,14 +18,26 @@
       changed_when: false
       failed_when: false
 
-    - name: Find compose files
+    - name: Find active compose files from Docker metadata
       ansible.builtin.shell: |
-        set -euo pipefail
-        for r in {{ compose_roots | join(' ') }}; do
-          [ -d "$r" ] || continue
-          find "$r" -xdev -type f \( -name docker-compose.yml -o -name docker-compose.yaml -o -name compose.yml -o -name compose.yaml \) \
-            -not -path "*/.git/*" -not -path "*/node_modules/*" -not -path "*/proc/*" -not -path "*/sys/*" -not -path "*/dev/*" 2>/dev/null
-        done | sort -u
+        set -eu
+        docker compose ls --format json | python3 -c '
+        import json, sys
+        try:
+            data = json.load(sys.stdin)
+        except Exception:
+            data = []
+        seen = []
+        for item in data:
+            config_files = str(item.get("ConfigFiles", ""))
+            for path in config_files.split(","):
+                path = path.strip()
+                if path and path not in seen:
+                    seen.append(path)
+        print("\n".join(seen))
+        '
+      args:
+        executable: /bin/bash
       register: compose_find
       changed_when: false
       failed_when: false
@@ -39,6 +51,8 @@
         cd "$d"
         docker compose pull
         docker compose up -d --remove-orphans
+      args:
+        executable: /bin/bash
       loop: "{{ compose_find.stdout_lines | default([]) }}"
       when:
         - docker_present.rc == 0
