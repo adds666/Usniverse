@@ -1,5 +1,6 @@
-- name: Ensure Proxmox has Global_Share NFS mounted persistently
-  hosts: pve
+---
+- name: Ensure Proxmox nodes have Global_Share NFS mounted persistently
+  hosts: proxmox
   gather_facts: false
   become: true
 

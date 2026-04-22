@@ -55,7 +55,7 @@ Important:
 | 110 | edge-proxy | `pve` | 110 | `192.168.1.110` | yes | no | ingress, Tailscale, DNAT, existing Homepage Docker host |
 | 111 | jellyfin | `pve` | 111 | `192.168.1.111` | yes | yes | app playbook plus static compose asset |
 | 112 | immich | `pve` | 112 | `192.168.1.112` | yes | no | infra represented, app playbook absent |
-| 113 | ollama | `servernode` | 113 | `192.168.1.113` | yes | yes | renumbered from `213` |
+| 113 | ollama | `servernode` | 113 | `192.168.1.113` | yes | verification only | bare-metal `systemd` service for NVIDIA access; renumbered from `213` |
 | 114 | invidious | `pve` | 114 | `192.168.1.114` | yes | no | service known, playbook absent |
 | 115 | openwebui | `servernode` | 115 | `192.168.1.115` | yes | yes | renumbered from `215` |
 | 116 | n8n | `pve` | 116 | `192.168.1.116` | yes | yes | playbook writes compose inline |
@@ -89,9 +89,9 @@ Outside this repo:
 - `inventories/home/group_vars/proxmox.yml`
   - Proxmox API and network defaults
 - `inventories/home/host_vars/pve.yml`
-  - node-specific rootfs storage and live Docker CT VMIDs on `pve`
+  - node-specific rootfs storage, live Docker CT VMIDs, and NAS bind-mount CT IDs on `pve`
 - `inventories/home/host_vars/servernode.yml`
-  - node-specific rootfs storage and live Docker CT VMIDs on `servernode`
+  - node-specific rootfs storage, live Docker CT VMIDs, and NAS bind-mount CT IDs on `servernode`
 - `inventories/home/host_vars/ct110.yml`
   - assumptions about the existing Homepage container on CT110
 - `inventories/home/group_vars/lxc/base_lxc.yml`
@@ -143,9 +143,9 @@ Outside this repo:
 ### 5.2 Infrastructure and support playbooks
 
 - `playbooks/pve_global_share_mount.yml`
-  - ensures `Global_Share` is mounted on `pve`
+  - ensures `Global_Share` is mounted on the Proxmox nodes that need it
 - `playbooks/nas_mount.yml`
-  - uses `roles/nas_mount` to bind `Global_Share` into selected CTs on `pve`
+  - uses `roles/nas_mount` to bind `Global_Share` into selected CTs using node-scoped `nas_lxc_ct_ids`
 - `playbooks/pve_ct110_global_share_bind.yml`
   - ensures CT110 has `/home/ubuntu/Global_Share` bind-mounted from Proxmox
 - `playbooks/pve_docker_egress.yml`
@@ -174,6 +174,7 @@ Operationally, `edge_proxy_dnat.yml` is the better source for rule data because 
 
 - `playbooks/app_jellyfin_ct111.yml`
 - `playbooks/app_ollama_ct113.yml`
+  - verification helper for the bare-metal Ollama service on `ct113`
 - `playbooks/app_openwebui_ct115.yml`
 - `playbooks/app_n8n_ct116.yml`
 - `playbooks/app_searxng_ct119.yml`
@@ -237,7 +238,6 @@ ansible-playbook -i inventories/home/hosts.yml playbooks/pve_docker_lxc_fix.yml 
 Examples:
 
 ```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/app_ollama_ct113.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_openwebui_ct115.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_searxng_ct119.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/homepage_ct110.yml
@@ -304,16 +304,16 @@ The intended pattern is:
 ### 8.2 Repo implementation
 
 - `playbooks/pve_global_share_mount.yml`
-  - ensures the `Global_Share` NFS mount exists on `pve`
+  - ensures the `Global_Share` NFS mount exists on the Proxmox nodes that need it
 - `playbooks/nas_mount.yml`
   - bind-mounts the host path into selected LXCs
-  - currently driven by `roles/nas_mount/defaults/main.yml`
+  - driven by node-scoped `nas_lxc_ct_ids` in Proxmox `host_vars`
 - `playbooks/pve_ct110_global_share_bind.yml`
   - separately ensures CT110 gets `/home/ubuntu/Global_Share`
 
 ### 8.3 Known semantic debt
 
-`roles/nas_mount/defaults/main.yml` still hardcodes `nas_lxc_ct_ids`. That is current behavior, but it is inventory-like data living in role defaults.
+`playbooks/pve_global_share_mount.yml` still has a `pve_` filename even though it now targets the Proxmox nodes that need the mount.
 
 ## 9. Current Ingress State
 
@@ -324,6 +324,7 @@ The parameterized DNAT rules in `group_vars/all/edge_proxy_dnat.yml` currently p
 | External port | Internal target | Service |
 | ---: | --- | --- |
 | 8096 | `192.168.1.111:8096` | Jellyfin |
+| 8080 | `192.168.1.119:8080` | SearXNG |
 | 3579 | `192.168.1.118:3579` | Ombi |
 | 8008 | `192.168.1.117:8008` | Synapse |
 | 5678 | `192.168.1.116:5678` | n8n |
@@ -347,6 +348,7 @@ Homepage itself is assumed to already exist on CT110. The repo does not currentl
 - `inventories/home/host_vars/ct110.yml` is where to change:
   - `homepage_config_dir`
   - `homepage_container_name`
+  - `edge_proxy_public_base_url`
 
 ### 10.1 SearXNG (CT119)
 
@@ -354,6 +356,8 @@ Homepage itself is assumed to already exist on CT110. The repo does not currentl
 - deployed with `playbooks/app_searxng_ct119.yml`
 - listens on `192.168.1.119:8080`
 - settings explicitly enable JSON search results for Open WebUI
+- the managed settings remove several noisy default public engines (`brave`, `karmasearch`, `startpage`, plus broken init engines on this node)
+- the SearXNG limiter is intentionally disabled because this repo does not yet deploy the Valkey backend it expects
 - intended as the dedicated web-search backend for Open WebUI and Homepage
 
 ### 10.2 Jellyfin (CT111)
@@ -365,9 +369,10 @@ Homepage itself is assumed to already exist on CT110. The repo does not currentl
 
 ### 10.3 Ollama (CT113)
 
-- Docker-based
+- native `systemd` service, not Docker-managed
 - listens on `192.168.1.113:11434`
-- no models are pulled by the playbook
+- `playbooks/app_ollama_ct113.yml` is verification-only so the repo does not try to replace the live GPU-oriented setup
+- no models are pulled by the repo
 
 ### 10.4 OpenWebUI (CT115)
 
@@ -426,7 +431,7 @@ These are intentional or known aspects of the current repo state:
 - `ct219` has not yet been renumbered into the `1xx` convention
 - two ingress playbooks exist and represent the same intent in different styles
 - CT110 helper playbooks still exist as convenience wrappers
-- `roles/nas_mount/defaults/main.yml` still stores environment-specific CT IDs
+- `playbooks/pve_global_share_mount.yml` still carries a legacy `pve_` filename
 - `ansible.cfg` currently sets `host_key_checking = False`
 - `ansible.cfg` currently sets `deprecation_warnings = False`
 - older handovers contain valuable history but may be stale on current semantics
@@ -440,6 +445,7 @@ These are intentional or known aspects of the current repo state:
 - after `pve_docker_lxc_fix.yml`, do not assume a guest reboot is enough; the playbook itself stop/starts the CTs
 - keep edge-proxy published ports aligned with `group_vars/all/edge_proxy_dnat.yml`
 - keep `docker_lxc_ct_ids` aligned with live VMIDs in node `host_vars`
+- keep `nas_lxc_ct_ids` aligned with live CT placement in node `host_vars`
 
 ## 14. Historical Troubleshooting Depth
 

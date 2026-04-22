@@ -5,3 +5,5 @@ docker_lxc_ct_ids:
   - 113
   - 115
   - 219
+nas_lxc_ct_ids:
+  - 113

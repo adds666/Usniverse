@@ -1,4 +1,5 @@
-- name: Proxmox host: enable egress for docker-in-LXC subnets
+---
+- name: "Proxmox host: enable egress for docker-in-LXC subnets"
   hosts: pve
   become: true
   roles:

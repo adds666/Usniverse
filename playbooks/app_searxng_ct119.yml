@@ -30,7 +30,23 @@
         mode: "0644"
         backup: true
         content: |
-          use_default_settings: true
+          use_default_settings:
+            engines:
+              remove:
+                - ahmia
+                - brave
+                - brave.images
+                - brave.news
+                - brave.videos
+                - karmasearch
+                - karmasearch images
+                - karmasearch news
+                - karmasearch videos
+                - startpage
+                - startpage images
+                - startpage news
+                - torch
+                - wikidata
 
           general:
             instance_name: "Usniverse Search"
@@ -44,8 +60,12 @@
 
           server:
             secret_key: "usniverse-searxng-ct119"
-            limiter: true
+            limiter: false
             image_proxy: true
+
+          outgoing:
+            request_timeout: 5.0
+      register: searxng_settings
 
     - name: Deploy SearXNG via docker_compose_app
       ansible.builtin.include_role:
@@ -65,3 +85,9 @@
                 - /opt/searxng/config:/etc/searxng
                 - /opt/searxng/data:/var/cache/searxng
               restart: unless-stopped
+
+    - name: Recreate SearXNG when managed settings change
+      ansible.builtin.command: docker compose up -d --force-recreate searxng
+      args:
+        chdir: "{{ searxng_app_dir }}"
+      when: searxng_settings.changed

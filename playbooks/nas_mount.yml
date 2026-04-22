@@ -1,6 +1,6 @@
 ---
 - name: Bind-mount NAS shares into LXCs (Proxmox-side)
-  hosts: pve
+  hosts: proxmox
   become: true
   gather_facts: false
   roles:

@@ -9,6 +9,12 @@ edge_proxy_dnat_rules:
     target_ip: 192.168.1.111
     target_port: 8096
 
+  - name: searxng
+    protocol: tcp
+    listen_port: 8080
+    target_ip: 192.168.1.119
+    target_port: 8080
+
   - name: ombi
     protocol: tcp
     listen_port: 3579

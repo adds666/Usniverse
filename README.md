@@ -28,7 +28,7 @@ The inventory uses host aliases (`pve`, `servernode`) for Ansible. The actual Pr
 | 110 | edge-proxy | `pve` | `192.168.1.110` | yes | no |
 | 111 | jellyfin | `pve` | `192.168.1.111` | yes | yes |
 | 112 | immich | `pve` | `192.168.1.112` | yes | no |
-| 113 | ollama | `servernode` | `192.168.1.113` | yes | yes |
+| 113 | ollama | `servernode` | `192.168.1.113` | yes | verification only |
 | 114 | invidious | `pve` | `192.168.1.114` | yes | no |
 | 115 | openwebui | `servernode` | `192.168.1.115` | yes | yes |
 | 116 | n8n | `pve` | `192.168.1.116` | yes | yes |
@@ -44,6 +44,7 @@ Notes:
 - `ct219` intentionally still uses `219`; it has not yet been renumbered into the `1xx` scheme.
 - A separate `7dtd` container exists in Proxmox but is not represented in this repo.
 - Not every running service has a dedicated app deployment playbook yet. The repo currently mixes full deployment playbooks with infrastructure-only representation.
+- `ct113` currently runs Ollama as a native `systemd` service for NVIDIA access. `playbooks/app_ollama_ct113.yml` is a verification helper, not a Docker deployment playbook.
 
 ## Inventory Model
 
@@ -74,8 +75,8 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 
 ### Infrastructure and support
 
-- `playbooks/pve_global_share_mount.yml`: ensure `Global_Share` is mounted on Proxmox
-- `playbooks/nas_mount.yml`: bind-mount `Global_Share` into selected LXCs
+- `playbooks/pve_global_share_mount.yml`: ensure `Global_Share` is mounted on the Proxmox nodes that need it
+- `playbooks/nas_mount.yml`: bind-mount `Global_Share` into selected LXCs using node-scoped `nas_lxc_ct_ids`
 - `playbooks/pve_ct110_global_share_bind.yml`: ensure CT110 gets its dedicated `Global_Share` bind mount
 - `playbooks/pve_docker_egress.yml`: configure Docker subnet egress rules on `pve`
 - `playbooks/docker_update_all.yml`: update Docker Compose projects across `docker_lxc`
@@ -86,7 +87,7 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 ### App and service deployment
 
 - `playbooks/app_jellyfin_ct111.yml`
-- `playbooks/app_ollama_ct113.yml`
+- `playbooks/app_ollama_ct113.yml`: verify the bare-metal Ollama service on `ct113`
 - `playbooks/app_openwebui_ct115.yml`
 - `playbooks/app_n8n_ct116.yml`
 - `playbooks/app_searxng_ct119.yml`
@@ -151,6 +152,7 @@ The parameterized ingress rule source in the repo is:
 That rule set currently publishes:
 
 - Jellyfin `8096`
+- SearXNG `8080 -> 192.168.1.119:8080`
 - Ombi `3579`
 - Synapse `8008`
 - n8n `5678`
@@ -168,14 +170,18 @@ Open WebUI is wired to SearXNG with:
 - `WEB_SEARCH_ENGINE=searxng`
 - `SEARXNG_QUERY_URL=http://192.168.1.119:8080/search?q=<query>`
 
+`playbooks/app_searxng_ct119.yml` also removes several flaky default public engines (`brave`, `karmasearch`, `startpage`, plus broken init engines on this node) and keeps the built-in limiter disabled because the repo does not currently deploy a backing Valkey service for it.
+
 Homepage is updated by `playbooks/homepage_ct110.yml`, which assumes the existing Homepage container on CT110 is named `homepage` and keeps its config in `/opt/homepage/config`. Those assumptions live in `inventories/home/host_vars/ct110.yml`.
+
+For remote Tailscale-only users, Homepage-managed AI links should target CT110's published edge-proxy ports. `inventories/home/host_vars/ct110.yml` carries the current `edge_proxy_public_base_url` used for those links.
 
 ## Storage Model
 
-`Global_Share` is mounted on Proxmox, not inside LXCs.
+`Global_Share` is mounted on the owning Proxmox node, not inside LXCs.
 
-- `playbooks/pve_global_share_mount.yml` ensures the host mount exists
-- `playbooks/nas_mount.yml` bind-mounts it into selected LXCs
+- `playbooks/pve_global_share_mount.yml` ensures the host mount exists on the Proxmox nodes that need it
+- `playbooks/nas_mount.yml` bind-mounts it into selected LXCs using per-node `nas_lxc_ct_ids`
 - `playbooks/pve_ct110_global_share_bind.yml` gives CT110 its dedicated Homepage-facing bind path
 
 This is a hard rule for the repo: no direct NFS mounts inside unprivileged LXCs.

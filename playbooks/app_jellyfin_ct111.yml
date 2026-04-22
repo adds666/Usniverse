@@ -18,6 +18,18 @@
         - /data/media
         - /data/transcode
 
+    - name: Normalize ownership on Jellyfin writable paths
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: admin
+        group: admin
+        recurse: true
+      loop:
+        - /opt/jellyfin/config
+        - /data/transcode
+      register: jellyfin_writable_paths
+
   roles:
     - role: docker_compose_app
       vars:
@@ -44,3 +56,11 @@
                 - /data/media:/media
                 - /data/transcode:/transcode
               restart: unless-stopped
+
+  post_tasks:
+    - name: Recreate Jellyfin after permission repair
+      ansible.builtin.command: docker compose up -d --force-recreate
+      args:
+        chdir: /opt/jellyfin
+      changed_when: true
+      when: jellyfin_writable_paths is changed

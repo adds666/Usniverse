@@ -23,7 +23,7 @@
         block: |
           - search:
               provider: custom
-              url: http://{{ hostvars['ct119'].ansible_host }}:8080/search?q=
+              url: {{ edge_proxy_public_base_url }}:8080/search?q=
               target: _blank
       register: homepage_widgets
 
@@ -37,16 +37,16 @@
         block: |
           - AI Search:
               - SearXNG:
-                  href: "http://{{ hostvars['ct119'].ansible_host }}:8080"
-                  description: Dedicated search engine for Open WebUI and Homepage
+                  href: "{{ edge_proxy_public_base_url }}:8080"
+                  description: Dedicated search engine exposed through edge-proxy for remote users
 
               - Open WebUI:
-                  href: "http://{{ hostvars['ct115'].ansible_host }}:3000"
-                  description: Chat UI backed by Ollama and SearXNG
+                  href: "{{ edge_proxy_public_base_url }}:8081"
+                  description: Chat UI backed by Ollama and SearXNG through edge-proxy
 
               - Ollama:
-                  href: "http://{{ hostvars['ct113'].ansible_host }}:11434/api/version"
-                  description: Local LLM API
+                  href: "{{ edge_proxy_public_base_url }}:11435/api/version"
+                  description: Local LLM API exposed through edge-proxy
       register: homepage_services
 
     - name: Check if Homepage container exists
