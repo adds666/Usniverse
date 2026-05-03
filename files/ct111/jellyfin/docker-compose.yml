@@ -8,7 +8,6 @@ services:
     - TZ=Europe/London
     volumes:
     - /opt/jellyfin/config:/config
-    - /data/media:/data/media
     - /data/transcode:/transcode
     - /mnt/Global_Share/Media/Movies:/media:ro
     - /mnt/Global_Share/Media/Music:/music:ro

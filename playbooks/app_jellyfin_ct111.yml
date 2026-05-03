@@ -15,7 +15,6 @@
       loop:
         - /opt/jellyfin
         - /opt/jellyfin/config
-        - /data/media
         - /data/transcode
 
     - name: Normalize ownership on Jellyfin writable paths
@@ -53,7 +52,8 @@
                 - TZ=${TZ}
               volumes:
                 - ./config:/config
-                - /data/media:/media
+                - /mnt/Global_Share/Media/Movies:/media:ro
+                - /mnt/Global_Share/Media/Music:/music:ro
                 - /data/transcode:/transcode
               restart: unless-stopped
 
