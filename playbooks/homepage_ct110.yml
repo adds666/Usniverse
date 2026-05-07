@@ -52,6 +52,13 @@
                   description: Local LLM API exposed through edge-proxy
       register: homepage_services
 
+    - name: Remove old unmanaged edge-proxy Server Control entries
+      ansible.builtin.replace:
+        path: "{{ homepage_config_dir }}/services.yaml"
+        regexp: '(?ms)^- Server Control:\n    - Wake ServerNode:\n        icon: mdi-power\n        href: "http://100\.122\.95\.117:8787/wol\?token=[^"]+"\n        ping: 192\.168\.1\.104\n        description: "WOL via edge-proxy webhook"\n\n    - Shutdown ServerNode:\n        icon: mdi-power-off\n        href: "http://100\.122\.95\.117:8787/shutdown\?token=[^"]+"\n        description: "Shutdown via edge-proxy webhook"\n        ping: 192\.168\.1\.104\n\n'
+        replace: ''
+      register: homepage_old_server_control_cleanup
+
     - name: Ensure Homepage services.yaml contains Server Control entries
       ansible.builtin.blockinfile:
         path: "{{ homepage_config_dir }}/services.yaml"
@@ -84,4 +91,4 @@
       ansible.builtin.command: docker restart {{ homepage_container_name }}
       when:
         - homepage_container.rc == 0
-        - homepage_widgets is changed or homepage_services is changed or homepage_server_control is changed
+        - homepage_widgets is changed or homepage_services is changed or homepage_server_control is changed or homepage_old_server_control_cleanup is changed
