@@ -4,6 +4,9 @@
   become: true
   gather_facts: true
 
+  vars:
+    earls_wol_port: 8787
+
   tasks:
     - name: Ensure Homepage config directory exists
       ansible.builtin.file:
@@ -49,6 +52,28 @@
                   description: Local LLM API exposed through edge-proxy
       register: homepage_services
 
+    - name: Ensure Homepage services.yaml contains Server Control entries
+      ansible.builtin.blockinfile:
+        path: "{{ homepage_config_dir }}/services.yaml"
+        create: true
+        backup: true
+        marker: "# {mark} USNIVERSE MANAGED SERVER CONTROL GROUP"
+        insertafter: EOF
+        block: |
+          - Server Control:
+              - Wake ServerNode:
+                  icon: mdi-power
+                  href: "http://{{ earls_wol_host }}:{{ earls_wol_port }}/wol?token={{ earls_wol_token }}"
+                  ping: 192.168.1.104
+                  description: WOL via earls-edge01 relay
+
+              - Shutdown ServerNode:
+                  icon: mdi-power-off
+                  href: "http://{{ earls_wol_host }}:{{ earls_wol_port }}/shutdown?token={{ earls_wol_token }}"
+                  ping: 192.168.1.104
+                  description: Shutdown via earls-edge01 relay
+      register: homepage_server_control
+
     - name: Check if Homepage container exists
       ansible.builtin.command: docker container inspect {{ homepage_container_name }}
       register: homepage_container
@@ -59,4 +84,4 @@
       ansible.builtin.command: docker restart {{ homepage_container_name }}
       when:
         - homepage_container.rc == 0
-        - homepage_widgets is changed or homepage_services is changed
+        - homepage_widgets is changed or homepage_services is changed or homepage_server_control is changed
