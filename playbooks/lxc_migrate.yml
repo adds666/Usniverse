@@ -1,0 +1,54 @@
+---
+- name: Migrate an LXC between Proxmox nodes with explicit target storage
+  hosts: pve
+  become: true
+  gather_facts: false
+
+  vars:
+    ct_id: null
+    target_node: ""
+    target_storage: "{{ hostvars[target_node].lxc_rootfs_storage }}"
+    target_proxmox_node: "{{ hostvars[target_node].proxmox_cluster_node_name | default(target_node) }}"
+    migration_mode: restart
+
+  pre_tasks:
+    - name: Assert required migration inputs are present
+      ansible.builtin.assert:
+        that:
+          - ct_id is not none
+          - (ct_id | int) >= 100
+          - target_node | length > 0
+          - target_node in groups['proxmox']
+          - target_storage | length > 0
+          - migration_mode in ['restart', 'online']
+        fail_msg: "Set ct_id, target_node, and a valid migration_mode (`restart` or `online`)."
+
+    - name: Check that the CT exists in the cluster config
+      ansible.builtin.command:
+        argv:
+          - test
+          - -f
+          - "/etc/pve/lxc/{{ ct_id }}.conf"
+      changed_when: false
+
+  tasks:
+    - name: Migrate CT to the target node and storage
+      ansible.builtin.shell: |
+        set -euo pipefail
+        pct migrate {{ ct_id | int }} {{ target_proxmox_node }} \
+          --target-storage {{ target_storage }} \
+          --{{ migration_mode }} 1
+      args:
+        executable: /bin/bash
+
+    - name: Show migrated CT rootfs placement
+      ansible.builtin.shell: |
+        grep -E '^(rootfs|mp[0-9]+):' /etc/pve/lxc/{{ ct_id | int }}.conf || true
+      args:
+        executable: /bin/bash
+      register: migrated_ct_config
+      changed_when: false
+
+    - name: Print migrated CT storage lines
+      ansible.builtin.debug:
+        var: migrated_ct_config.stdout_lines

@@ -1,0 +1,87 @@
+---
+- name: Standardize local Proxmox storage for LXC rootfs
+  hosts: pve
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../inventories/home/group_vars/proxmox_storage.yml
+
+  vars:
+    desired_local_lvm_nodes_csv: "{{ proxmox_local_lvm_nodes | sort | join(',') }}"
+    desired_local_zfs_nodes_csv: "{{ proxmox_local_zfs_nodes | sort | join(',') }}"
+
+  tasks:
+    - name: Check whether local-lvm already matches the desired cluster scope
+      ansible.builtin.shell: |
+        set -euo pipefail
+        block="$(awk '
+          /^lvmthin: local-lvm$/ {capture=1; print; next}
+          capture && /^[^[:space:]]/ {capture=0}
+          capture {print}
+        ' /etc/pve/storage.cfg)"
+        nodes_line="$(printf '%s\n' "$block" | awk '/^[[:space:]]*nodes / {sub(/^[[:space:]]*nodes /, ""); print}')"
+        current_nodes="$(printf '%s' "$nodes_line" | tr ',' '\n' | sed '/^$/d' | sort | paste -sd, -)"
+        printf '%s\n' "$block" | grep -Eq '^[[:space:]]*content (images,rootdir|rootdir,images)$'
+        ! printf '%s\n' "$block" | grep -Eq '^[[:space:]]*disable 1$'
+        test "$current_nodes" = "{{ desired_local_lvm_nodes_csv }}"
+      args:
+        executable: /bin/bash
+      register: local_lvm_matches
+      changed_when: false
+      failed_when: local_lvm_matches.rc not in [0, 1]
+
+    - name: Check whether local-zfs already matches the desired cluster scope
+      ansible.builtin.shell: |
+        set -euo pipefail
+        block="$(awk '
+          /^zfspool: local-zfs$/ {capture=1; print; next}
+          capture && /^[^[:space:]]/ {capture=0}
+          capture {print}
+        ' /etc/pve/storage.cfg)"
+        nodes_line="$(printf '%s\n' "$block" | awk '/^[[:space:]]*nodes / {sub(/^[[:space:]]*nodes /, ""); print}')"
+        current_nodes="$(printf '%s' "$nodes_line" | tr ',' '\n' | sed '/^$/d' | sort | paste -sd, -)"
+        printf '%s\n' "$block" | grep -Eq '^[[:space:]]*content (images,rootdir|rootdir,images)$'
+        ! printf '%s\n' "$block" | grep -Eq '^[[:space:]]*disable 1$'
+        test "$current_nodes" = "{{ desired_local_zfs_nodes_csv }}"
+      args:
+        executable: /bin/bash
+      register: local_zfs_matches
+      changed_when: false
+      failed_when: local_zfs_matches.rc not in [0, 1]
+
+    - name: Ensure local-lvm is enabled on all LVM-thin nodes
+      ansible.builtin.command:
+        argv:
+          - pvesm
+          - set
+          - local-lvm
+          - --nodes
+          - "{{ proxmox_local_lvm_nodes | join(',') }}"
+          - --content
+          - rootdir,images
+          - --disable
+          - "0"
+      when: local_lvm_matches.rc == 1
+
+    - name: Ensure local-zfs remains scoped to servernode
+      ansible.builtin.command:
+        argv:
+          - pvesm
+          - set
+          - local-zfs
+          - --nodes
+          - "{{ proxmox_local_zfs_nodes | join(',') }}"
+          - --content
+          - rootdir,images
+          - --disable
+          - "0"
+      when: local_zfs_matches.rc == 1
+
+    - name: Show cluster storage status after standardization
+      ansible.builtin.command: pvesm status
+      register: proxmox_storage_status
+      changed_when: false
+
+    - name: Print cluster storage status
+      ansible.builtin.debug:
+        var: proxmox_storage_status.stdout_lines

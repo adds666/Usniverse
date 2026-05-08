@@ -12,14 +12,16 @@ Usniverse is an Ansible-managed homelab for running Proxmox LXC workloads with a
 
 ## Environment Model
 
-There are two Proxmox nodes in scope:
+There are four Proxmox nodes in scope:
 
 | Inventory Alias | Actual Proxmox Node | Purpose |
 | --- | --- | --- |
 | `pve` | `macbookpro` | primary Proxmox node |
+| `samsung` | `samsung` | secondary Proxmox node with local LVM-thin storage |
 | `servernode` | `servernode` | secondary Proxmox node |
+| `toshiba` | `toshiba` | secondary Proxmox node with local LVM-thin storage |
 
-The inventory uses host aliases (`pve`, `servernode`) for Ansible. The actual Proxmox node name `macbookpro` still appears in Proxmox-specific settings such as `proxmox_node`.
+The inventory uses host aliases for Ansible. Each Proxmox host var can also carry `proxmox_cluster_node_name` for the real cluster-side node name when it differs from the inventory alias.
 
 ## Current Managed Estate
 
@@ -63,6 +65,7 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 ### Core lifecycle
 
 - `playbooks/lxc_ssh.yml`: create LXCs on Proxmox via `pct` and `pveam`
+- `playbooks/lxc_migrate.yml`: move an LXC between Proxmox nodes with explicit target storage
 - `playbooks/ct_bootstrap.yml`: bootstrap brand-new CTs so Ansible can log in
 - `playbooks/base_lxc.yml`: baseline Debian LXC config
 - `playbooks/docker_host.yml`: install Docker on the `docker_lxc` group
@@ -74,6 +77,7 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 - `playbooks/nas_mount.yml`: bind-mount `Global_Share` into selected LXCs using node-scoped `nas_lxc_ct_ids`
 - `playbooks/pve_ct110_global_share_bind.yml`: ensure CT110 gets its dedicated `Global_Share` bind mount
 - `playbooks/pve_docker_egress.yml`: configure Docker subnet egress rules on `pve`
+- `playbooks/proxmox_local_lxc_storage.yml`: standardize which nodes expose `local-lvm` or `local-zfs` for LXC root disks
 - `playbooks/docker_update_all.yml`: update Docker Compose projects across `docker_lxc`
 - `playbooks/edge_proxy_dnat.yml`: variable-driven DNAT management for `ct110` via Proxmox `pct exec`
 - `playbooks/ct110_ingress.yml`: direct-on-CT110 DNAT playbook with an inline rules list
@@ -110,6 +114,11 @@ ansible-playbook -i inventories/home/hosts.yml ...
 ansible-playbook -i inventories/home/hosts.yml playbooks/lxc_ssh.yml --limit servernode -e "{\"lxc_target_ids\":[120]}"
 ```
 
+New LXCs use node-specific rootfs storage from `inventories/home/host_vars/<node>.yml`:
+
+- `pve`, `samsung`, and `toshiba` default to `local-lvm`
+- `servernode` defaults to `local-zfs`
+
 ### Bootstrap a new CT
 
 `ct_bootstrap.yml` takes Proxmox VMIDs, not inventory hostnames:
@@ -125,6 +134,26 @@ ansible-playbook -i inventories/home/hosts.yml playbooks/base_lxc.yml --limit ct
 ansible-playbook -i inventories/home/hosts.yml playbooks/docker_host.yml --limit ct120
 ansible-playbook -i inventories/home/hosts.yml playbooks/pve_docker_lxc_fix.yml --limit servernode
 ```
+
+### Standardize Proxmox LXC storage
+
+```bash
+ansible-playbook -i inventories/home/hosts.yml playbooks/proxmox_local_lxc_storage.yml
+```
+
+This keeps cluster storage aligned with the current design:
+
+- `local-lvm` on `macbookpro`, `samsung`, and `toshiba`
+- `local-zfs` on `servernode`
+
+### Move an LXC between nodes
+
+```bash
+ansible-playbook -i inventories/home/hosts.yml playbooks/lxc_migrate.yml -e '{"ct_id":121,"target_node":"pve"}'
+ansible-playbook -i inventories/home/hosts.yml playbooks/lxc_migrate.yml -e '{"ct_id":121,"target_node":"servernode"}'
+```
+
+`lxc_migrate.yml` derives the destination storage from the target node host vars, so moves between `local-lvm` and `local-zfs` stay explicit and repeatable.
 
 ### Deploy an app
 
@@ -168,6 +197,13 @@ Homepage is updated by `playbooks/homepage_ct110.yml`, which assumes the existin
 - `playbooks/pve_ct110_global_share_bind.yml` gives CT110 its dedicated Homepage-facing bind path
 
 This is a hard rule for the repo: no direct NFS mounts inside unprivileged LXCs.
+
+Local Proxmox rootfs storage is intentionally node-specific:
+
+- `macbookpro`, `samsung`, and `toshiba` expose `local-lvm`
+- `servernode` exposes `local-zfs`
+
+LXCs can still move between nodes, but cross-node moves must target a valid destination storage. The repo manages that through `playbooks/lxc_migrate.yml` rather than assuming the same local storage ID exists everywhere.
 
 ## Documentation Policy
 

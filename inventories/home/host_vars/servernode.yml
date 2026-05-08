@@ -1,3 +1,4 @@
+proxmox_cluster_node_name: servernode
 lxc_rootfs_storage: local-zfs
 docker_lxc_ct_ids:
   - 120

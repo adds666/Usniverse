@@ -1,3 +1,4 @@
+proxmox_cluster_node_name: macbookpro
 lxc_rootfs_storage: local-lvm
 docker_lxc_ct_ids:
   - 110

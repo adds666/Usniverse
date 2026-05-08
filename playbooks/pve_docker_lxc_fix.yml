@@ -48,7 +48,6 @@
       ansible.builtin.assert:
         that:
           - docker_lxc_ct_ids is defined
-          - docker_lxc_ct_ids | length > 0
         fail_msg: "Define docker_lxc_ct_ids in host_vars for {{ inventory_hostname }}"
 
   tasks:

@@ -1,0 +1,7 @@
+proxmox_local_lvm_nodes:
+  - macbookpro
+  - samsung
+  - toshiba
+
+proxmox_local_zfs_nodes:
+  - servernode

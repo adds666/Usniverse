@@ -1,0 +1,4 @@
+proxmox_cluster_node_name: samsung
+lxc_rootfs_storage: local-lvm
+docker_lxc_ct_ids: []
+nas_lxc_ct_ids: []
