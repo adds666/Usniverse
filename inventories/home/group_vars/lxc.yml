@@ -35,17 +35,6 @@ lxc_map:
     features:
       - nesting=1
       - keyctl=1
-  - id: 113
-    proxmox_vmid: 113
-    node: servernode
-    hostname: ollama
-    ip: 192.168.1.113/24
-    cores: 4
-    memory: 8192
-    disk_gb: 32
-    features:
-      - nesting=1
-      - keyctl=1
   - id: 114
     proxmox_vmid: 114
     node: pve
@@ -53,17 +42,6 @@ lxc_map:
     ip: 192.168.1.114/24
     cores: 2
     memory: 2048
-    disk_gb: 16
-    features:
-      - nesting=1
-      - keyctl=1
-  - id: 115
-    proxmox_vmid: 115
-    node: servernode
-    hostname: openwebui
-    ip: 192.168.1.115/24
-    cores: 2
-    memory: 4096
     disk_gb: 16
     features:
       - nesting=1
@@ -136,16 +114,3 @@ lxc_map:
       - nesting=1
       - keyctl=1
       - fuse=1
-  - id: 219
-    proxmox_vmid: 219
-    node: servernode
-    hostname: immich-ml
-    ip: 192.168.1.219/24
-    cores: 4
-    memory: 8192
-    disk_gb: 16
-    features:
-      - nesting=1
-      - keyctl=1
-      - fuse=1
-

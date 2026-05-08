@@ -2,8 +2,4 @@ lxc_rootfs_storage: local-zfs
 docker_lxc_ct_ids:
   - 120
   - 121
-  - 113
-  - 115
-  - 219
-nas_lxc_ct_ids:
-  - 113
+nas_lxc_ct_ids: []

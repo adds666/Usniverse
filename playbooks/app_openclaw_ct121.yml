@@ -62,8 +62,6 @@
                 HOME: /home/node
                 TERM: xterm-256color
                 TZ: Europe/London
-                OPENCLAW_BRAIN_PROVIDER: ollama
-                OLLAMA_HOST: http://192.168.1.113:11434
               volumes:
                 - {{ openclaw_cfg_dir }}:/home/node/.openclaw
                 - {{ openclaw_ws_dir }}:/home/node/.openclaw/workspace
@@ -88,8 +86,6 @@
                 HOME: /home/node
                 TERM: xterm-256color
                 TZ: Europe/London
-                OPENCLAW_BRAIN_PROVIDER: ollama
-                OLLAMA_HOST: http://192.168.1.113:11434
                 BROWSER: echo
               volumes:
                 - {{ openclaw_cfg_dir }}:/home/node/.openclaw
@@ -105,9 +101,6 @@
         group: admin
         mode: "0644"
         content: |
-          brain:
-            provider: "ollama"
-
           gateway:
             host: "0.0.0.0"
             port: 18789
