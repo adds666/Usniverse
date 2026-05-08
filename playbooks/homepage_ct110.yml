@@ -42,15 +42,14 @@
               - SearXNG:
                   href: "{{ edge_proxy_public_base_url }}:8080"
                   description: Dedicated search engine exposed through edge-proxy for remote users
-
-              - Open WebUI:
-                  href: "{{ edge_proxy_public_base_url }}:8081"
-                  description: Chat UI backed by Ollama and SearXNG through edge-proxy
-
-              - Ollama:
-                  href: "{{ edge_proxy_public_base_url }}:11435/api/version"
-                  description: Local LLM API exposed through edge-proxy
       register: homepage_services
+
+    - name: Remove old unmanaged ComfyUI Homepage entry
+      ansible.builtin.replace:
+        path: "{{ homepage_config_dir }}/services.yaml"
+        regexp: '(?ms)^    - ComfyUI:\n        href: http://100\.122\.95\.117:8188\n        description: Node-based image workflow UI\n'
+        replace: ''
+      register: homepage_comfyui_cleanup
 
     - name: Remove old unmanaged edge-proxy Server Control entries
       ansible.builtin.replace:
@@ -91,4 +90,4 @@
       ansible.builtin.command: docker restart {{ homepage_container_name }}
       when:
         - homepage_container.rc == 0
-        - homepage_widgets is changed or homepage_services is changed or homepage_server_control is changed or homepage_old_server_control_cleanup is changed
+        - homepage_widgets is changed or homepage_services is changed or homepage_server_control is changed or homepage_old_server_control_cleanup is changed or homepage_comfyui_cleanup is changed
