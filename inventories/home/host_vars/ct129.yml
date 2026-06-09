@@ -1,0 +1,9 @@
+qbittorrent_webui_port: 8080
+qbittorrent_torrent_port: 6881
+qbittorrent_webui_username: admin
+qbittorrent_webui_password: "{{ vault_qbittorrent_webui_password }}"
+qbittorrent_vpn_service_provider: protonvpn
+qbittorrent_vpn_type: openvpn
+qbittorrent_vpn_server_countries: "United Kingdom"
+qbittorrent_vpn_openvpn_user: "{{ vault_protonvpn_openvpn_user }}"
+qbittorrent_vpn_openvpn_password: "{{ vault_protonvpn_openvpn_password }}"

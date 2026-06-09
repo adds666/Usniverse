@@ -114,3 +114,91 @@ lxc_map:
       - nesting=1
       - keyctl=1
       - fuse=1
+  - id: 122
+    proxmox_vmid: 122
+    node: servernode
+    hostname: sonarr
+    ip: 192.168.1.122/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 123
+    proxmox_vmid: 123
+    node: servernode
+    hostname: radarr
+    ip: 192.168.1.123/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 124
+    proxmox_vmid: 124
+    node: servernode
+    hostname: lidarr
+    ip: 192.168.1.124/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 125
+    proxmox_vmid: 125
+    node: servernode
+    hostname: readarr
+    ip: 192.168.1.125/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 126
+    proxmox_vmid: 126
+    node: servernode
+    hostname: bazarr
+    ip: 192.168.1.126/24
+    cores: 1
+    memory: 1024
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 127
+    proxmox_vmid: 127
+    node: servernode
+    hostname: prowlarr
+    ip: 192.168.1.127/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 128
+    proxmox_vmid: 128
+    node: servernode
+    hostname: flaresolverr
+    ip: 192.168.1.128/24
+    cores: 1
+    memory: 1024
+    disk_gb: 8
+    features:
+      - nesting=1
+      - keyctl=1
+  - id: 129
+    proxmox_vmid: 129
+    node: servernode
+    hostname: qbittorrent
+    ip: 192.168.1.129/24
+    cores: 2
+    memory: 2048
+    disk_gb: 16
+    features:
+      - nesting=1
+      - keyctl=1

@@ -1,0 +1,9 @@
+---
+- import_playbook: app_sonarr_ct122.yml
+- import_playbook: app_radarr_ct123.yml
+- import_playbook: app_lidarr_ct124.yml
+- import_playbook: app_readarr_ct125.yml
+- import_playbook: app_bazarr_ct126.yml
+- import_playbook: app_prowlarr_ct127.yml
+- import_playbook: app_flaresolverr_ct128.yml
+- import_playbook: app_qbittorrent_ct129.yml

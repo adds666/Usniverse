@@ -1,0 +1,42 @@
+---
+- name: Deploy Lidarr on CT124
+  hosts: ct124
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Ensure Lidarr config directory exists
+      ansible.builtin.file:
+        path: /opt/lidarr/config
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+
+  roles:
+    - role: docker_compose_app
+      vars:
+        docker_compose_app_name: lidarr
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_env:
+          PUID: "1000"
+          PGID: "1000"
+          TZ: "Europe/London"
+          UMASK: "002"
+        docker_compose_app_compose_yml: |
+          services:
+            lidarr:
+              image: lscr.io/linuxserver/lidarr:latest
+              container_name: lidarr
+              network_mode: host
+              environment:
+                - PUID=${PUID}
+                - PGID=${PGID}
+                - TZ=${TZ}
+                - UMASK=${UMASK}
+              volumes:
+                - ./config:/config
+                - /mnt/Global_Share/Media/Torrents_Unsorted:/downloads
+                - /mnt/Global_Share/Media/Music:/music
+              restart: unless-stopped

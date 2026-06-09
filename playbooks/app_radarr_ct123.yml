@@ -1,0 +1,42 @@
+---
+- name: Deploy Radarr on CT123
+  hosts: ct123
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Ensure Radarr config directory exists
+      ansible.builtin.file:
+        path: /opt/radarr/config
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+
+  roles:
+    - role: docker_compose_app
+      vars:
+        docker_compose_app_name: radarr
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_env:
+          PUID: "1000"
+          PGID: "1000"
+          TZ: "Europe/London"
+          UMASK: "002"
+        docker_compose_app_compose_yml: |
+          services:
+            radarr:
+              image: lscr.io/linuxserver/radarr:latest
+              container_name: radarr
+              network_mode: host
+              environment:
+                - PUID=${PUID}
+                - PGID=${PGID}
+                - TZ=${TZ}
+                - UMASK=${UMASK}
+              volumes:
+                - ./config:/config
+                - /mnt/Global_Share/Media/Torrents_Unsorted:/downloads
+                - /mnt/Global_Share/Media/Movies:/movies
+              restart: unless-stopped

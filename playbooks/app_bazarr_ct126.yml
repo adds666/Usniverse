@@ -1,0 +1,42 @@
+---
+- name: Deploy Bazarr on CT126
+  hosts: ct126
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Ensure Bazarr config directory exists
+      ansible.builtin.file:
+        path: /opt/bazarr/config
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+
+  roles:
+    - role: docker_compose_app
+      vars:
+        docker_compose_app_name: bazarr
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_env:
+          PUID: "1000"
+          PGID: "1000"
+          TZ: "Europe/London"
+          UMASK: "002"
+        docker_compose_app_compose_yml: |
+          services:
+            bazarr:
+              image: lscr.io/linuxserver/bazarr:latest
+              container_name: bazarr
+              network_mode: host
+              environment:
+                - PUID=${PUID}
+                - PGID=${PGID}
+                - TZ=${TZ}
+                - UMASK=${UMASK}
+              volumes:
+                - ./config:/config
+                - /mnt/Global_Share/Media/Movies:/movies
+                - /mnt/Global_Share/Media/Movies/TV Series:/tv
+              restart: unless-stopped

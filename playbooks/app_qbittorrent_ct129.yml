@@ -1,0 +1,91 @@
+---
+- name: Deploy qBittorrent on CT129 behind ProtonVPN
+  hosts: ct129
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Assert ProtonVPN credentials are defined
+      ansible.builtin.assert:
+        that:
+          - qbittorrent_vpn_openvpn_user is defined
+          - qbittorrent_vpn_openvpn_user | length > 0
+          - qbittorrent_vpn_openvpn_password is defined
+          - qbittorrent_vpn_openvpn_password | length > 0
+        fail_msg: "Define ProtonVPN OpenVPN credentials for ct129 before deploying qBittorrent."
+
+    - name: Ensure qBittorrent directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+      loop:
+        - /opt/qbittorrent
+        - /opt/qbittorrent/config
+        - /opt/qbittorrent/gluetun
+
+  roles:
+    - role: docker_compose_app
+      vars:
+        docker_compose_app_name: qbittorrent
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_env:
+          TZ: "Europe/London"
+          PUID: "1000"
+          PGID: "1000"
+          UMASK: "002"
+          WEBUI_PORT: "{{ qbittorrent_webui_port | string }}"
+          TORRENT_PORT: "{{ qbittorrent_torrent_port | string }}"
+          VPN_SERVICE_PROVIDER: "{{ qbittorrent_vpn_service_provider }}"
+          VPN_TYPE: "{{ qbittorrent_vpn_type }}"
+          OPENVPN_USER: "{{ qbittorrent_vpn_openvpn_user }}"
+          OPENVPN_PASSWORD: "{{ qbittorrent_vpn_openvpn_password }}"
+          SERVER_COUNTRIES: "{{ qbittorrent_vpn_server_countries }}"
+          FIREWALL_INPUT_PORTS: "{{ qbittorrent_webui_port }},{{ qbittorrent_torrent_port }}"
+          FIREWALL_OUTBOUND_SUBNETS: "192.168.1.0/24"
+        docker_compose_app_compose_yml: |
+          services:
+            gluetun:
+              image: qmcgaw/gluetun:latest
+              container_name: gluetun
+              cap_add:
+                - NET_ADMIN
+              devices:
+                - /dev/net/tun:/dev/net/tun
+              ports:
+                - "{{ qbittorrent_webui_port }}:{{ qbittorrent_webui_port }}"
+                - "{{ qbittorrent_torrent_port }}:{{ qbittorrent_torrent_port }}"
+                - "{{ qbittorrent_torrent_port }}:{{ qbittorrent_torrent_port }}/udp"
+              environment:
+                - TZ=${TZ}
+                - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+                - VPN_TYPE=${VPN_TYPE}
+                - OPENVPN_USER=${OPENVPN_USER}
+                - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+                - SERVER_COUNTRIES=${SERVER_COUNTRIES}
+                - FIREWALL_INPUT_PORTS=${FIREWALL_INPUT_PORTS}
+                - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS}
+              volumes:
+                - ./gluetun:/gluetun
+              restart: unless-stopped
+
+            qbittorrent:
+              image: lscr.io/linuxserver/qbittorrent:latest
+              container_name: qbittorrent
+              network_mode: "service:gluetun"
+              depends_on:
+                - gluetun
+              environment:
+                - PUID=${PUID}
+                - PGID=${PGID}
+                - TZ=${TZ}
+                - UMASK=${UMASK}
+                - WEBUI_PORT=${WEBUI_PORT}
+                - TORRENTING_PORT=${TORRENT_PORT}
+              volumes:
+                - ./config:/config
+                - /mnt/Global_Share/Media/Torrents_Unsorted:/downloads
+              restart: unless-stopped

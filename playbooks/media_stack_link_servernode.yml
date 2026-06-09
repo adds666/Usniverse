@@ -1,0 +1,716 @@
+---
+- name: Set stable qBittorrent WebUI credentials on CT129
+  hosts: ct129
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure qBittorrent accepts the vaulted admin password
+      ansible.builtin.shell: |
+        set -euo pipefail
+        COOKIE="$(mktemp)"
+        trap 'rm -f "$COOKIE"' EXIT
+
+        login() {
+          local password="$1"
+          curl -sS -o /dev/null -w '%{http_code}' -c "$COOKIE" \
+            --data "username={{ qbittorrent_webui_username }}&password=${password}" \
+            "http://127.0.0.1:{{ qbittorrent_webui_port }}/api/v2/auth/login"
+        }
+
+        login_ok() {
+          case "$1" in
+            2*) return 0 ;;
+            *) return 1 ;;
+          esac
+        }
+
+        if login_ok "$(login '{{ qbittorrent_webui_password }}')"; then
+          exit 0
+        fi
+
+        TMP_PASSWORD="$(docker logs qbittorrent 2>&1 | sed -n 's/.*temporary password is provided for this session: //p' | tail -n1)"
+        [ -n "$TMP_PASSWORD" ]
+
+        rm -f "$COOKIE"
+        touch "$COOKIE"
+        login_ok "$(login "$TMP_PASSWORD")"
+
+        curl -fsS -b "$COOKIE" \
+          --data-urlencode 'json={"web_ui_username":"{{ qbittorrent_webui_username }}","web_ui_password":"{{ qbittorrent_webui_password }}"}' \
+          "http://127.0.0.1:{{ qbittorrent_webui_port }}/api/v2/app/setPreferences" >/dev/null
+
+        rm -f "$COOKIE"
+        touch "$COOKIE"
+        login_ok "$(login '{{ qbittorrent_webui_password }}')"
+      args:
+        executable: /bin/bash
+      no_log: true
+
+- name: Configure Sonarr on CT122
+  hosts: ct122
+  become: true
+  gather_facts: false
+
+  vars:
+    sonarr_root_path: /tv
+    sonarr_category: tv-sonarr
+
+  tasks:
+    - name: Read Sonarr API key from config.xml
+      ansible.builtin.slurp:
+        src: /opt/sonarr/config/config.xml
+      register: sonarr_config
+
+    - name: Set Sonarr API key fact
+      ansible.builtin.set_fact:
+        sonarr_api_key: "{{ sonarr_config.content | b64decode | regex_search('<ApiKey>([^<]+)</ApiKey>', '\\1') | first }}"
+
+    - name: Query Sonarr root folders
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8989/api/v3/rootfolder
+        method: GET
+        headers:
+          X-Api-Key: "{{ sonarr_api_key }}"
+      register: sonarr_rootfolders
+
+    - name: Add Sonarr root folder
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8989/api/v3/rootfolder
+        method: POST
+        headers:
+          X-Api-Key: "{{ sonarr_api_key }}"
+        body_format: json
+        body:
+          path: "{{ sonarr_root_path }}"
+        status_code: 201
+      when: sonarr_rootfolders.json | selectattr('path', 'equalto', sonarr_root_path) | list | length == 0
+
+    - name: Query Sonarr root folders after creation
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8989/api/v3/rootfolder
+        method: GET
+        headers:
+          X-Api-Key: "{{ sonarr_api_key }}"
+      register: sonarr_rootfolders_final
+
+    - name: Query Sonarr download clients
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8989/api/v3/downloadclient
+        method: GET
+        headers:
+          X-Api-Key: "{{ sonarr_api_key }}"
+      register: sonarr_download_clients
+
+    - name: Add qBittorrent download client to Sonarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8989/api/v3/downloadclient
+        method: POST
+        headers:
+          X-Api-Key: "{{ sonarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          protocol: torrent
+          priority: 1
+          removeCompletedDownloads: true
+          removeFailedDownloads: true
+          name: qBittorrent
+          implementationName: qBittorrent
+          implementation: QBittorrent
+          configContract: QBittorrentSettings
+          fields:
+            - name: host
+              value: 192.168.1.129
+            - name: port
+              value: 8080
+            - name: useSsl
+              value: false
+            - name: urlBase
+              value: /
+            - name: username
+              value: "{{ hostvars['ct129'].qbittorrent_webui_username }}"
+            - name: password
+              value: "{{ hostvars['ct129'].qbittorrent_webui_password }}"
+            - name: tvCategory
+              value: "{{ sonarr_category }}"
+            - name: tvImportedCategory
+              value: ""
+            - name: tvDirectory
+              value: /downloads
+            - name: recentTvPriority
+              value: 0
+            - name: olderTvPriority
+              value: 0
+            - name: initialState
+              value: 0
+            - name: sequentialOrder
+              value: false
+            - name: firstAndLast
+              value: false
+            - name: contentLayout
+              value: 0
+          tags: []
+        status_code: 201
+      when: sonarr_download_clients.json | selectattr('implementation', 'equalto', 'QBittorrent') | list | length == 0
+
+- name: Configure Radarr on CT123
+  hosts: ct123
+  become: true
+  gather_facts: false
+
+  vars:
+    radarr_root_path: /movies
+    radarr_category: radarr
+
+  tasks:
+    - name: Read Radarr API key from config.xml
+      ansible.builtin.slurp:
+        src: /opt/radarr/config/config.xml
+      register: radarr_config
+
+    - name: Set Radarr API key fact
+      ansible.builtin.set_fact:
+        radarr_api_key: "{{ radarr_config.content | b64decode | regex_search('<ApiKey>([^<]+)</ApiKey>', '\\1') | first }}"
+
+    - name: Query Radarr root folders
+      ansible.builtin.uri:
+        url: http://127.0.0.1:7878/api/v3/rootfolder
+        method: GET
+        headers:
+          X-Api-Key: "{{ radarr_api_key }}"
+      register: radarr_rootfolders
+
+    - name: Add Radarr root folder
+      ansible.builtin.uri:
+        url: http://127.0.0.1:7878/api/v3/rootfolder
+        method: POST
+        headers:
+          X-Api-Key: "{{ radarr_api_key }}"
+        body_format: json
+        body:
+          path: "{{ radarr_root_path }}"
+        status_code: 201
+      when: radarr_rootfolders.json | selectattr('path', 'equalto', radarr_root_path) | list | length == 0
+
+    - name: Query Radarr root folders after creation
+      ansible.builtin.uri:
+        url: http://127.0.0.1:7878/api/v3/rootfolder
+        method: GET
+        headers:
+          X-Api-Key: "{{ radarr_api_key }}"
+      register: radarr_rootfolders_final
+
+    - name: Query Radarr download clients
+      ansible.builtin.uri:
+        url: http://127.0.0.1:7878/api/v3/downloadclient
+        method: GET
+        headers:
+          X-Api-Key: "{{ radarr_api_key }}"
+      register: radarr_download_clients
+
+    - name: Add qBittorrent download client to Radarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:7878/api/v3/downloadclient
+        method: POST
+        headers:
+          X-Api-Key: "{{ radarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          protocol: torrent
+          priority: 1
+          removeCompletedDownloads: true
+          removeFailedDownloads: true
+          name: qBittorrent
+          implementationName: qBittorrent
+          implementation: QBittorrent
+          configContract: QBittorrentSettings
+          fields:
+            - name: host
+              value: 192.168.1.129
+            - name: port
+              value: 8080
+            - name: useSsl
+              value: false
+            - name: urlBase
+              value: /
+            - name: username
+              value: "{{ hostvars['ct129'].qbittorrent_webui_username }}"
+            - name: password
+              value: "{{ hostvars['ct129'].qbittorrent_webui_password }}"
+            - name: movieCategory
+              value: "{{ radarr_category }}"
+            - name: movieImportedCategory
+              value: ""
+            - name: movieDirectory
+              value: /downloads
+            - name: recentMoviePriority
+              value: 0
+            - name: olderMoviePriority
+              value: 0
+            - name: initialState
+              value: 0
+            - name: sequentialOrder
+              value: false
+            - name: firstAndLast
+              value: false
+            - name: contentLayout
+              value: 0
+          tags: []
+        status_code: 201
+      when: radarr_download_clients.json | selectattr('implementation', 'equalto', 'QBittorrent') | list | length == 0
+
+- name: Configure Lidarr on CT124
+  hosts: ct124
+  become: true
+  gather_facts: false
+
+  vars:
+    lidarr_root_path: /music
+    lidarr_category: lidarr
+
+  tasks:
+    - name: Read Lidarr API key from config.xml
+      ansible.builtin.slurp:
+        src: /opt/lidarr/config/config.xml
+      register: lidarr_config
+
+    - name: Set Lidarr API key fact
+      ansible.builtin.set_fact:
+        lidarr_api_key: "{{ lidarr_config.content | b64decode | regex_search('<ApiKey>([^<]+)</ApiKey>', '\\1') | first }}"
+
+    - name: Query Lidarr root folders
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8686/api/v1/rootfolder
+        method: GET
+        headers:
+          X-Api-Key: "{{ lidarr_api_key }}"
+      register: lidarr_rootfolders
+
+    - name: Add Lidarr root folder
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8686/api/v1/rootfolder
+        method: POST
+        headers:
+          X-Api-Key: "{{ lidarr_api_key }}"
+        body_format: json
+        body:
+          path: "{{ lidarr_root_path }}"
+        status_code: 201
+      when: lidarr_rootfolders.json | selectattr('path', 'equalto', lidarr_root_path) | list | length == 0
+
+    - name: Query Lidarr download clients
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8686/api/v1/downloadclient
+        method: GET
+        headers:
+          X-Api-Key: "{{ lidarr_api_key }}"
+      register: lidarr_download_clients
+
+    - name: Add qBittorrent download client to Lidarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8686/api/v1/downloadclient
+        method: POST
+        headers:
+          X-Api-Key: "{{ lidarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          protocol: torrent
+          priority: 1
+          removeCompletedDownloads: true
+          removeFailedDownloads: true
+          name: qBittorrent
+          implementationName: qBittorrent
+          implementation: QBittorrent
+          configContract: QBittorrentSettings
+          fields:
+            - name: host
+              value: 192.168.1.129
+            - name: port
+              value: 8080
+            - name: useSsl
+              value: false
+            - name: urlBase
+              value: /
+            - name: username
+              value: "{{ hostvars['ct129'].qbittorrent_webui_username }}"
+            - name: password
+              value: "{{ hostvars['ct129'].qbittorrent_webui_password }}"
+            - name: musicCategory
+              value: "{{ lidarr_category }}"
+            - name: musicImportedCategory
+              value: ""
+            - name: musicDirectory
+              value: /downloads
+            - name: recentMusicPriority
+              value: 0
+            - name: olderMusicPriority
+              value: 0
+            - name: initialState
+              value: 0
+            - name: sequentialOrder
+              value: false
+            - name: firstAndLast
+              value: false
+            - name: contentLayout
+              value: 0
+          tags: []
+        status_code: 201
+      when: lidarr_download_clients.json | selectattr('implementation', 'equalto', 'QBittorrent') | list | length == 0
+
+- name: Configure Readarr on CT125
+  hosts: ct125
+  become: true
+  gather_facts: false
+
+  vars:
+    readarr_root_path: /books
+    readarr_category: readarr
+
+  tasks:
+    - name: Read Readarr API key from config.xml
+      ansible.builtin.slurp:
+        src: /opt/readarr/config/config.xml
+      register: readarr_config
+
+    - name: Set Readarr API key fact
+      ansible.builtin.set_fact:
+        readarr_api_key: "{{ readarr_config.content | b64decode | regex_search('<ApiKey>([^<]+)</ApiKey>', '\\1') | first }}"
+
+    - name: Query Readarr root folders
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8787/api/v1/rootfolder
+        method: GET
+        headers:
+          X-Api-Key: "{{ readarr_api_key }}"
+      register: readarr_rootfolders
+
+    - name: Add Readarr root folder
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8787/api/v1/rootfolder
+        method: POST
+        headers:
+          X-Api-Key: "{{ readarr_api_key }}"
+        body_format: json
+        body:
+          path: "{{ readarr_root_path }}"
+        status_code: 201
+      when: readarr_rootfolders.json | selectattr('path', 'equalto', readarr_root_path) | list | length == 0
+
+    - name: Query Readarr download clients
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8787/api/v1/downloadclient
+        method: GET
+        headers:
+          X-Api-Key: "{{ readarr_api_key }}"
+      register: readarr_download_clients
+
+    - name: Add qBittorrent download client to Readarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8787/api/v1/downloadclient
+        method: POST
+        headers:
+          X-Api-Key: "{{ readarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          protocol: torrent
+          priority: 1
+          removeCompletedDownloads: true
+          removeFailedDownloads: true
+          name: qBittorrent
+          implementationName: qBittorrent
+          implementation: QBittorrent
+          configContract: QBittorrentSettings
+          fields:
+            - name: host
+              value: 192.168.1.129
+            - name: port
+              value: 8080
+            - name: useSsl
+              value: false
+            - name: urlBase
+              value: /
+            - name: username
+              value: "{{ hostvars['ct129'].qbittorrent_webui_username }}"
+            - name: password
+              value: "{{ hostvars['ct129'].qbittorrent_webui_password }}"
+            - name: musicCategory
+              value: "{{ readarr_category }}"
+            - name: musicImportedCategory
+              value: ""
+            - name: musicDirectory
+              value: /downloads
+            - name: recentMusicPriority
+              value: 0
+            - name: olderMusicPriority
+              value: 0
+            - name: initialState
+              value: 0
+            - name: sequentialOrder
+              value: false
+            - name: firstAndLast
+              value: false
+            - name: contentLayout
+              value: 0
+          tags: []
+        status_code: 201
+      when: readarr_download_clients.json | selectattr('implementation', 'equalto', 'QBittorrent') | list | length == 0
+
+- name: Configure Bazarr on CT126
+  hosts: ct126
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Update Bazarr Radarr connection
+      ansible.builtin.replace:
+        path: /opt/bazarr/config/config/config.yaml
+        regexp: '(?ms)^radarr:\n(?:  .*\n)+?(?=^[^ ]|\Z)'
+        replace: |
+          radarr:
+            apikey: '34c28d9573e942109f456f1739af9ffa'
+            base_url: /
+            defer_search_signalr: false
+            excluded_tags: []
+            full_update: Daily
+            full_update_day: 6
+            full_update_hour: 4
+            http_timeout: 60
+            ip: 192.168.1.123
+            movies_sync: 60
+            movies_sync_on_live: true
+            only_monitored: false
+            port: 7878
+            ssl: false
+            sync_only_monitored_movies: false
+            use_ffprobe_cache: true
+
+    - name: Update Bazarr Sonarr connection
+      ansible.builtin.replace:
+        path: /opt/bazarr/config/config/config.yaml
+        regexp: '(?ms)^sonarr:\n(?:  .*\n)+?(?=^[^ ]|\Z)'
+        replace: |
+          sonarr:
+            apikey: '29fac9ca277444a99046373d9912f4f7'
+            base_url: /
+            defer_search_signalr: false
+            exclude_season_zero: false
+            excluded_series_types: []
+            excluded_tags: []
+            full_update: Daily
+            full_update_day: 6
+            full_update_hour: 4
+            http_timeout: 60
+            ip: 192.168.1.122
+            only_monitored: false
+            port: 8989
+            series_sync: 60
+            series_sync_on_live: true
+            ssl: false
+            sync_only_monitored_episodes: false
+            sync_only_monitored_series: false
+            use_ffprobe_cache: true
+
+    - name: Enable Bazarr Sonarr and Radarr integrations
+      ansible.builtin.replace:
+        path: /opt/bazarr/config/config/config.yaml
+        regexp: '(?m)^  use_radarr: false$'
+        replace: '  use_radarr: true'
+
+    - name: Enable Bazarr Sonarr integration flag
+      ansible.builtin.replace:
+        path: /opt/bazarr/config/config/config.yaml
+        regexp: '(?m)^  use_sonarr: false$'
+        replace: '  use_sonarr: true'
+
+    - name: Restart Bazarr container
+      ansible.builtin.command: docker restart bazarr
+
+- name: Configure Prowlarr on CT127
+  hosts: ct127
+  become: true
+  gather_facts: false
+
+  vars:
+    prowlarr_api_key: bde691bf5f5c4887a0f374259f14422d
+
+  tasks:
+    - name: Query Prowlarr applications
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9696/api/v1/applications
+        method: GET
+        headers:
+          X-Api-Key: "{{ prowlarr_api_key }}"
+      register: prowlarr_apps
+
+    - name: Query Prowlarr indexer proxies
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9696/api/v1/indexerProxy
+        method: GET
+        headers:
+          X-Api-Key: "{{ prowlarr_api_key }}"
+      register: prowlarr_proxies
+
+    - name: Add FlareSolverr proxy to Prowlarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9696/api/v1/indexerProxy
+        method: POST
+        headers:
+          X-Api-Key: "{{ prowlarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          name: FlareSolverr
+          implementationName: FlareSolverr
+          implementation: FlareSolverr
+          configContract: FlareSolverrSettings
+          fields:
+            - name: host
+              value: http://192.168.1.128:8191/
+            - name: requestTimeout
+              value: 60
+          tags: []
+        status_code: 201
+      when: prowlarr_proxies.json | selectattr('implementation', 'equalto', 'FlareSolverr') | list | length == 0
+
+    - name: Add Sonarr application to Prowlarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9696/api/v1/applications
+        method: POST
+        headers:
+          X-Api-Key: "{{ prowlarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          syncLevel: fullSync
+          name: Sonarr
+          implementationName: Sonarr
+          implementation: Sonarr
+          configContract: SonarrSettings
+          fields:
+            - name: prowlarrUrl
+              value: http://192.168.1.127:9696
+            - name: baseUrl
+              value: http://192.168.1.122:8989
+            - name: apiKey
+              value: 29fac9ca277444a99046373d9912f4f7
+            - name: syncCategories
+              value: [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5060, 5070, 5080, 5090]
+          tags: []
+        status_code: 201
+      when: prowlarr_apps.json | selectattr('implementation', 'equalto', 'Sonarr') | list | length == 0
+
+    - name: Add Radarr application to Prowlarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9696/api/v1/applications
+        method: POST
+        headers:
+          X-Api-Key: "{{ prowlarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          syncLevel: fullSync
+          name: Radarr
+          implementationName: Radarr
+          implementation: Radarr
+          configContract: RadarrSettings
+          fields:
+            - name: prowlarrUrl
+              value: http://192.168.1.127:9696
+            - name: baseUrl
+              value: http://192.168.1.123:7878
+            - name: apiKey
+              value: 34c28d9573e942109f456f1739af9ffa
+            - name: syncCategories
+              value: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080, 2090]
+          tags: []
+        status_code: 201
+      when: prowlarr_apps.json | selectattr('implementation', 'equalto', 'Radarr') | list | length == 0
+
+    - name: Add Lidarr application to Prowlarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9696/api/v1/applications
+        method: POST
+        headers:
+          X-Api-Key: "{{ prowlarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          syncLevel: fullSync
+          name: Lidarr
+          implementationName: Lidarr
+          implementation: Lidarr
+          configContract: LidarrSettings
+          fields:
+            - name: prowlarrUrl
+              value: http://192.168.1.127:9696
+            - name: baseUrl
+              value: http://192.168.1.124:8686
+            - name: apiKey
+              value: 241b69868fce4d9b93f90fc5ad23ffb8
+            - name: syncCategories
+              value: [3000, 3010, 3020, 3030, 3040]
+          tags: []
+        status_code: 201
+      when: prowlarr_apps.json | selectattr('implementation', 'equalto', 'Lidarr') | list | length == 0
+
+    - name: Add Readarr application to Prowlarr
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9696/api/v1/applications
+        method: POST
+        headers:
+          X-Api-Key: "{{ prowlarr_api_key }}"
+        body_format: json
+        body:
+          enable: true
+          syncLevel: fullSync
+          name: Readarr
+          implementationName: Readarr
+          implementation: Readarr
+          configContract: ReadarrSettings
+          fields:
+            - name: prowlarrUrl
+              value: http://192.168.1.127:9696
+            - name: baseUrl
+              value: http://192.168.1.125:8787
+            - name: apiKey
+              value: d409b1314b2f4ae68c7d802af4af36ef
+            - name: syncCategories
+              value: [7000, 7010, 7020, 7030, 7040, 7050, 7060]
+          tags: []
+        status_code: 201
+      when: prowlarr_apps.json | selectattr('implementation', 'equalto', 'Readarr') | list | length == 0
+
+- name: Repoint Ombi to the new Sonarr and Radarr services on CT118
+  hosts: ct118
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Update Ombi Sonarr settings
+      ansible.builtin.shell: |
+        set -e
+        sqlite3 /opt/ombi/config/OmbiSettings.db <<'SQL'
+        UPDATE GlobalSettings
+        SET Content='{"Enabled":true,"ApiKey":"29fac9ca277444a99046373d9912f4f7","QualityProfile":"4","SeasonFolders":true,"RootPath":"1","SendUserTags":false,"AddOnly":false,"LanguageProfile":1,"LanguageProfileAnime":0,"ScanForAvailability":false,"PrioritizeArrAvailability":false,"Ssl":false,"Ip":"192.168.1.122","Port":8989,"Id":4}'
+        WHERE SettingsName='SonarrSettings';
+        SQL
+      args:
+        executable: /bin/bash
+
+    - name: Update Ombi Radarr settings
+      ansible.builtin.shell: |
+        set -e
+        sqlite3 /opt/ombi/config/OmbiSettings.db <<'SQL'
+        UPDATE GlobalSettings
+        SET Content='{"Enabled":true,"ApiKey":"34c28d9573e942109f456f1739af9ffa","DefaultQualityProfile":"4","DefaultRootPath":"/movies","AddOnly":false,"MinimumAvailability":"Released","ScanForAvailability":true,"PrioritizeArrAvailability":false,"SendUserTags":false,"Ssl":false,"Ip":"192.168.1.123","Port":7878,"Id":5}'
+        WHERE SettingsName='RadarrSettings';
+        SQL
+      args:
+        executable: /bin/bash
+
+    - name: Restart Ombi container
+      ansible.builtin.command: docker restart ombi

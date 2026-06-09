@@ -1,0 +1,40 @@
+---
+- name: Deploy Prowlarr on CT127
+  hosts: ct127
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Ensure Prowlarr config directory exists
+      ansible.builtin.file:
+        path: /opt/prowlarr/config
+        state: directory
+        owner: admin
+        group: admin
+        mode: "0755"
+
+  roles:
+    - role: docker_compose_app
+      vars:
+        docker_compose_app_name: prowlarr
+        docker_compose_app_owner: admin
+        docker_compose_app_group: admin
+        docker_compose_app_env:
+          PUID: "1000"
+          PGID: "1000"
+          TZ: "Europe/London"
+          UMASK: "002"
+        docker_compose_app_compose_yml: |
+          services:
+            prowlarr:
+              image: lscr.io/linuxserver/prowlarr:latest
+              container_name: prowlarr
+              network_mode: host
+              environment:
+                - PUID=${PUID}
+                - PGID=${PGID}
+                - TZ=${TZ}
+                - UMASK=${UMASK}
+              volumes:
+                - ./config:/config
+              restart: unless-stopped
