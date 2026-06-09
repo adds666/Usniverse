@@ -1,0 +1,14 @@
+edge_proxy_ip: "100.122.95.117"
+edge_proxy_wol_port: 8787
+
+remote_wol_relay_url: "http://100.91.80.105:8787"
+
+servernode_ip: "192.168.1.104"
+servernode_wol_mac: "0c:c4:7a:ca:24:2b"
+
+edge_wol_iface: "eth0"
+
+# Define this in an encrypted vault file or pass with -e.
+wol_webhook_token: "{{ vault_wol_webhook_token }}"
+
+homepage_services_path: "/opt/homepage/config/services.yaml"

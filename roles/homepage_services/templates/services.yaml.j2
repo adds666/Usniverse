@@ -1,0 +1,12 @@
+- Server Control:
+    - Wake ServerNode:
+        icon: mdi-power
+        href: "http://{{ edge_proxy_ip }}:{{ edge_proxy_wol_port }}/wol?token={{ wol_webhook_token }}"
+        ping: {{ servernode_ip }}
+        description: "WOL via edge-proxy -> earls-edge01"
+
+    - Shutdown ServerNode:
+        icon: mdi-power-off
+        href: "http://{{ edge_proxy_ip }}:{{ edge_proxy_wol_port }}/shutdown?token={{ wol_webhook_token }}"
+        ping: {{ servernode_ip }}
+        description: "Shutdown via edge-proxy -> earls-edge01"

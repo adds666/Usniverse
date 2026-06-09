@@ -1,0 +1,4 @@
+- name: restart-wol-webhook
+  ansible.builtin.service:
+    name: wol-webhook.service
+    state: restarted

@@ -1,0 +1,11 @@
+- name: Render Homepage services
+  ansible.builtin.template:
+    src: services.yaml.j2
+    dest: "{{ homepage_services_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Restart homepage
+  ansible.builtin.command: docker restart homepage
+  changed_when: true

@@ -1,0 +1,54 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+import os
+import urllib.request
+
+TOKEN = os.environ.get("WOL_TOKEN", "")
+PORT = int(os.environ.get("WOL_PORT", "8787"))
+REMOTE = os.environ.get("REMOTE_WOL_RELAY_URL", "").rstrip("/")
+
+class H(BaseHTTPRequestHandler):
+
+    def resp(self, code, msg):
+        self.send_response(code)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write((msg + "\n").encode())
+
+    def authed(self, u):
+        q = parse_qs(u.query)
+        return TOKEN and q.get("token", [""])[0] == TOKEN
+
+    def do_GET(self):
+        self.handle_req()
+
+    def do_POST(self):
+        self.handle_req()
+
+    def handle_req(self):
+        u = urlparse(self.path)
+
+        if u.path not in ("/wol", "/shutdown"):
+            return self.resp(404, "not found")
+
+        if not self.authed(u):
+            return self.resp(403, "forbidden")
+
+        if not REMOTE:
+            return self.resp(500, "missing relay url")
+
+        target = f"{REMOTE}{u.path}?token={TOKEN}"
+
+        try:
+            with urllib.request.urlopen(target, timeout=10) as r:
+                body = r.read().decode("utf-8", "replace").strip()
+
+            return self.resp(200, body or "ok")
+
+        except Exception as e:
+            return self.resp(500, f"proxy error: {e}")
+
+    def log_message(self, *args):
+        return
+
+HTTPServer(("0.0.0.0", PORT), H).serve_forever()

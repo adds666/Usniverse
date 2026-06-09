@@ -1,0 +1,40 @@
+- name: Install python3
+  ansible.builtin.apt:
+    name: python3
+    state: present
+    update_cache: true
+
+- name: Ensure webhook dirs exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/wol-webhook
+    - /etc/wol-webhook
+
+- name: Install proxy server.py
+  ansible.builtin.template:
+    src: server.py.j2
+    dest: /opt/wol-webhook/server.py
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart-wol-webhook
+
+- name: Install proxy env
+  ansible.builtin.template:
+    src: wol-webhook.env.j2
+    dest: /etc/wol-webhook/env
+    owner: root
+    group: root
+    mode: "0600"
+  notify: restart-wol-webhook
+
+- name: Start webhook
+  ansible.builtin.systemd:
+    name: wol-webhook.service
+    enabled: true
+    state: started

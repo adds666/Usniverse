@@ -1,0 +1,8 @@
+- name: Edge Proxy - proxy Homepage requests to Earls relay
+  hosts: ct110
+  become: true
+  vars_files:
+    - ../group_vars/all/power_control.yml
+  roles:
+    - edge_wol_proxy
+    # - homepage_services  # disabled: patch manually, do not overwrite Homepage
