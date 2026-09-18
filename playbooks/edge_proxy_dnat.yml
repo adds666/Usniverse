@@ -59,13 +59,25 @@
     - name: Apply FORWARD rules
       shell: |
         pct exec {{ edge_proxy_ct_id }} -- bash -lc '
-        iptables -A USNIVERSE_FORWARD -d {{ item.target_ip }}/32 -i {{ edge_proxy_ts_if }} -o {{ edge_proxy_lan_if }} \
+        iptables -A USNIVERSE_FORWARD -d {{ item.target_ip }}/32 -i {{ edge_proxy_ts_if }} -o {{ item.target_interface | default(edge_proxy_lan_if) }} \
         -p {{ item.protocol }} --dport {{ item.target_port }} -j ACCEPT
 
-        iptables -A USNIVERSE_FORWARD -s {{ item.target_ip }}/32 -i {{ edge_proxy_lan_if }} -o {{ edge_proxy_ts_if }} \
+        iptables -A USNIVERSE_FORWARD -s {{ item.target_ip }}/32 -i {{ item.target_interface | default(edge_proxy_lan_if) }} -o {{ edge_proxy_ts_if }} \
         -p {{ item.protocol }} --sport {{ item.target_port }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
         '
       loop: "{{ edge_proxy_dnat_rules }}"
+      changed_when: true
+
+    - name: Apply masquerade for Tailscale-backed DNAT rules
+      shell: |
+        pct exec {{ edge_proxy_ct_id }} -- bash -lc '
+        iptables -t nat -C POSTROUTING -d {{ item.target_ip }}/32 -o {{ edge_proxy_ts_if }} \
+        -p {{ item.protocol }} --dport {{ item.target_port }} -j MASQUERADE 2>/dev/null || \
+        iptables -t nat -A POSTROUTING -d {{ item.target_ip }}/32 -o {{ edge_proxy_ts_if }} \
+        -p {{ item.protocol }} --dport {{ item.target_port }} -j MASQUERADE
+        '
+      loop: "{{ edge_proxy_dnat_rules }}"
+      when: item.target_interface | default(edge_proxy_lan_if) == edge_proxy_ts_if
       changed_when: true
 
     - name: Save rules
