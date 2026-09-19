@@ -1,0 +1,3 @@
+---
+# ROG_Ubuntu -> servernode Tailscale -> target LXC on servernode LAN
+ansible_ssh_common_args: "-o ProxyJump=root@100.74.248.75"

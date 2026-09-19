@@ -1,12 +1,75 @@
-- Server Control:
+- Media:
+    - Jellyfin:
+        icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/jellyfin.png
+        href: "{{ edge_proxy_public_base_url }}:8096"
+        ping: "{{ edge_proxy_public_base_url }}:8096"
+        description: Media server
+{% if homepage_jellyfin_widget_key | default('') %}
+        widget:
+          type: jellyfin
+          url: "{{ edge_proxy_public_base_url }}:8096"
+          key: {{ homepage_jellyfin_widget_key }}
+{% endif %}
+
+    - Ombi:
+        icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/ombi.png
+        href: "{{ edge_proxy_public_base_url }}:3579"
+        ping: "{{ edge_proxy_public_base_url }}:3579"
+        description: Media requests
+{% if homepage_ombi_widget_key | default('') %}
+        widget:
+          type: ombi
+          url: "{{ edge_proxy_public_base_url }}:3579"
+          key: {{ homepage_ombi_widget_key }}
+          fields: ["pending", "approved", "available"]
+{% endif %}
+
+    - Invidious:
+        icon: invidious.png
+        href: "{{ edge_proxy_public_base_url }}:4000"
+        ping: "{{ edge_proxy_public_base_url }}:4000"
+        description: Privacy-respecting YouTube frontend
+
+- Chat:
+    - Matrix:
+        icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/icons/matrix.svg
+        href: "{{ homepage_matrix_url }}"
+        ping: "{{ homepage_matrix_url }}"
+        description: Point your client at {{ homepage_matrix_url }}
+
+- ServerNode:
     - Wake ServerNode:
         icon: mdi-power
-        href: "http://{{ edge_proxy_ip }}:{{ edge_proxy_wol_port }}/wol?token={{ wol_webhook_token }}"
-        ping: {{ servernode_ip }}
-        description: "WOL via edge-proxy -> earls-edge01"
+        href: "{{ homepage_wol_url }}"
+        ping: "{{ servernode_ip }}"
+        description: WOL via earls-edge01 relay
 
     - Shutdown ServerNode:
         icon: mdi-power-off
-        href: "http://{{ edge_proxy_ip }}:{{ edge_proxy_wol_port }}/shutdown?token={{ wol_webhook_token }}"
-        ping: {{ servernode_ip }}
-        description: "Shutdown via edge-proxy -> earls-edge01"
+        href: "{{ homepage_shutdown_url }}"
+        ping: "{{ servernode_ip }}"
+        description: Shutdown via earls-edge01 relay
+
+    - 7 Days to Die:
+        icon: mdi-controller-classic
+        ping: "{{ homepage_7dtd_ping }}"
+        description: Dedicated server status only
+
+    - n8n:
+        icon: n8n
+        href: "{{ edge_proxy_public_base_url }}:5678"
+        ping: "{{ edge_proxy_public_base_url }}:5678"
+        description: Workflow automation and integrations
+
+    - OpenClaw:
+        icon: mdi-robot-outline
+        href: "{{ homepage_openclaw_url }}"
+        siteMonitor: "{{ homepage_openclaw_site_monitor }}"
+        description: OpenClaw gateway
+
+- Search:
+    - SearXNG:
+        icon: searxng
+        href: "{{ edge_proxy_public_base_url }}:8080"
+        ping: "{{ edge_proxy_public_base_url }}:8080"
+        description: Dedicated search engine exposed through edge-proxy

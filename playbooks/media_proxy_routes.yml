@@ -1,0 +1,72 @@
+---
+# The two sites share a LAN subnet. Bridge media endpoints over Tailscale.
+- name: Expose migrated media through private socket proxies
+  hosts: servernode:ct110
+  serial: 1
+  become: true
+  gather_facts: false
+  vars:
+    media_services:
+      - {name: sonarr, port: 8989, target: '192.168.1.122:8989'}
+      - {name: radarr, port: 7878, target: '192.168.1.123:7878'}
+      - {name: lidarr, port: 8686, target: '192.168.1.124:8686'}
+      - {name: prowlarr, port: 9696, target: '192.168.1.127:9696'}
+      - {name: qbittorrent, port: 8086, target: '192.168.1.129:8080'}
+    media_bind_addresses: "{{ ['100.74.248.75'] if inventory_hostname == 'servernode' else ['100.122.95.117', '192.168.1.110'] }}"
+  tasks:
+    - name: Install media socket units on private addresses
+      ansible.builtin.copy:
+        dest: '/etc/systemd/system/usniverse-media-{{ item.name }}.socket'
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Usniverse {{ item.name }} private media listener
+          After=network-online.target tailscaled.service
+          Wants=network-online.target
+          [Socket]
+          {% for address in media_bind_addresses %}
+          ListenStream={{ address }}:{{ item.port }}
+          {% endfor %}
+          FreeBind=true
+          [Install]
+          WantedBy=sockets.target
+      loop: '{{ media_services }}'
+      register: media_sockets
+    - name: Install media forwarding services
+      ansible.builtin.copy:
+        dest: '/etc/systemd/system/usniverse-media-{{ item.name }}.service'
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Usniverse {{ item.name }} private media forwarding
+          Requires=usniverse-media-{{ item.name }}.socket
+          After=network-online.target
+          [Service]
+          Type=simple
+          ExecStart=/usr/lib/systemd/systemd-socket-proxyd {{ item.target if inventory_hostname == 'servernode' else '100.74.248.75:' ~ item.port }}
+          DynamicUser=yes
+          NoNewPrivileges=yes
+          PrivateTmp=yes
+          Restart=on-failure
+      loop: '{{ media_services }}'
+      register: media_forwarders
+    - name: Reload units
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: media_sockets.changed or media_forwarders.changed
+    - name: Restart changed forwarding services
+      ansible.builtin.systemd:
+        name: 'usniverse-media-{{ item.item.name }}.service'
+        state: restarted
+      loop: '{{ media_forwarders.results }}'
+      loop_control:
+        label: '{{ item.item.name }}'
+      when: item.changed
+    - name: Enable media sockets
+      ansible.builtin.systemd:
+        name: 'usniverse-media-{{ item.item.name }}.socket'
+        enabled: true
+        state: "{{ 'restarted' if item.changed else 'started' }}"
+      loop: '{{ media_sockets.results }}'
+      loop_control:
+        label: '{{ item.item.name }}'

@@ -7,6 +7,8 @@
   vars:
     gpu_lxc_ct_ids:
       - 120
+    vpn_lxc_ct_ids:
+      - 129
 
     nvidia_lxc_lines:
       - "lxc.cgroup2.devices.allow: c 195:* rwm"
@@ -85,6 +87,17 @@
       args:
         executable: /bin/bash
       loop: "{{ gpu_lxc_ct_ids }}"
+
+    - name: Patch TUN passthrough for each VPN CT
+      ansible.builtin.shell: |
+        set -e
+        CONF="/etc/pve/lxc/{{ item }}.conf"
+        [ -f "$CONF" ] || exit 0
+        grep -qxF "lxc.mount.entry: /dev/net dev/net none bind,create=dir" "$CONF" || echo "lxc.mount.entry: /dev/net dev/net none bind,create=dir" >> "$CONF"
+        grep -qxF "lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file" "$CONF" || echo "lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file" >> "$CONF"
+      args:
+        executable: /bin/bash
+      loop: "{{ vpn_lxc_ct_ids }}"
 
     - name: Restart CTs to apply config
       ansible.builtin.shell: |

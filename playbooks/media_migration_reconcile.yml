@@ -1,0 +1,6 @@
+---
+# Steady-state reconciliation after restoring migrated application databases.
+# Does not copy data, install/upgrade apps, or start deferred CT125/126.
+- import_playbook: media_stack_link_servernode.yml
+- import_playbook: homepage_ct110.yml
+- import_playbook: dashy_ubuntuvm.yml

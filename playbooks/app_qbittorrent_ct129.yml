@@ -26,6 +26,20 @@
         - /opt/qbittorrent/config
         - /opt/qbittorrent/gluetun
 
+    - name: Verify NAS is mounted before creating download storage
+      ansible.builtin.command: findmnt -T /mnt/Global_Share -n -o FSTYPE
+      register: qbittorrent_nas_fstype
+      changed_when: false
+      failed_when: qbittorrent_nas_fstype.rc != 0 or qbittorrent_nas_fstype.stdout | trim not in ['nfs', 'nfs4']
+
+    - name: Ensure incomplete downloads remain on NAS storage
+      become_user: admin
+      ansible.builtin.file:
+        path: /mnt/Global_Share/Media/Torrents_Unsorted/incomplete-ct129
+        state: directory
+        # NAS ownership is unmapped in the unprivileged CT, as on the existing download share.
+        mode: "0777"
+
   roles:
     - role: docker_compose_app
       vars:
@@ -36,7 +50,7 @@
           TZ: "Europe/London"
           PUID: "1000"
           PGID: "1000"
-          UMASK: "002"
+          UMASK: "000"
           WEBUI_PORT: "{{ qbittorrent_webui_port | string }}"
           TORRENT_PORT: "{{ qbittorrent_torrent_port | string }}"
           VPN_SERVICE_PROVIDER: "{{ qbittorrent_vpn_service_provider }}"
@@ -88,4 +102,5 @@
               volumes:
                 - ./config:/config
                 - /mnt/Global_Share/Media/Torrents_Unsorted:/downloads
+                - /mnt/Global_Share/Media/Torrents_Unsorted/incomplete-ct129:/incomplete
               restart: unless-stopped

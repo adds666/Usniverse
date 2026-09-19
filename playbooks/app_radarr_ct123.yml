@@ -39,4 +39,6 @@
                 - ./config:/config
                 - /mnt/Global_Share/Media/Torrents_Unsorted:/downloads
                 - /mnt/Global_Share/Media/Movies:/movies
+                # Keep migrated Synology library paths valid without moving media.
+                - /mnt/Global_Share/Media/Movies:/volume1/Global_Share/Media/Movies
               restart: unless-stopped

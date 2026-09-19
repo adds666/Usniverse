@@ -1,0 +1,17 @@
+---
+# Dashy is the only UbuntuVM service managed by this playbook; Immich remains live.
+dashy_migration:
+  config_path: /home/ubuntu/DockerContainers/dashy/my-config.yml
+  container: Dashy
+  media_links:
+    Sonarr: http://100.122.95.117:8989/
+    Radarr: http://100.122.95.117:7878/activity/queue
+    Lidarr: http://100.122.95.117:8686/
+    Prowlarr: http://100.122.95.117:9696/
+    QBitTorrent: http://100.122.95.117:8086
+  servernode:
+    title: ServerNode
+    url: https://100.74.248.75:8006/
+    target: newtab
+    statusCheck: false
+    id: 3_765_servernode

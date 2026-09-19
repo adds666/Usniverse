@@ -39,4 +39,6 @@
                 - ./config:/config
                 - /mnt/Global_Share/Media/Torrents_Unsorted:/downloads
                 - /mnt/Global_Share/Media/Movies/TV Series:/tv
+                # Preserve migrated Synology paths, including the separate Kids TV library.
+                - /mnt/Global_Share/Media/Movies:/volume1/Global_Share/Media/Movies
               restart: unless-stopped

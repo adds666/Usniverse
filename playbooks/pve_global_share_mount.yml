@@ -10,6 +10,23 @@
     global_share_path: "/mnt/pve/Global_Share"
     global_share_opts: "vers=3,rw,hard,timeo=600,retrans=2,_netdev"
 
+  pre_tasks:
+    - name: Verify the existing PVE-managed NFS mount
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --noheadings
+          - --types
+          - nfs,nfs4
+          - --mountpoint
+          - "{{ nas_host_mount_src }}"
+      changed_when: false
+      when: global_share_managed_by_pve | default(false) | bool
+
+    - name: Leave PVE-managed storage under Proxmox control
+      ansible.builtin.meta: end_host
+      when: global_share_managed_by_pve | default(false) | bool
+
   tasks:
     - name: Ensure mountpoint directory exists
       ansible.builtin.file:

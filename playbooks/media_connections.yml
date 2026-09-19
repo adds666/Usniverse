@@ -1,0 +1,36 @@
+---
+- name: Reconcile connections in restored media applications
+  hosts: ct129:ct122:ct123:ct124:ct127:ct118
+  serial: 1
+  become: true
+  gather_facts: false
+  vars:
+    media_app_by_host:
+      ct129: qbittorrent
+      ct122: sonarr
+      ct123: radarr
+      ct124: lidarr
+      ct127: prowlarr
+      ct118: ombi
+  tasks:
+    - name: Install connection reconciler
+      ansible.builtin.copy:
+        src: ../scripts/media/reconcile.py
+        dest: /usr/local/sbin/usniverse-media-connections
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Install non-secret connection specification
+      ansible.builtin.copy:
+        content: '{{ media_connections | to_nice_json }}'
+        dest: /etc/usniverse-media-connections.json
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Validate and reconcile existing application settings
+      ansible.builtin.command:
+        argv: "{{ ['/usr/local/sbin/usniverse-media-connections', media_app_by_host[inventory_hostname], '/etc/usniverse-media-connections.json'] + (['--check'] if media_connections_check | default(false) | bool else []) }}"
+      register: media_connection_result
+      changed_when: (media_connection_result.stdout | from_json).changed
+      # Check mode does not assume helper files already exist on a fresh host.
+      when: not ansible_check_mode

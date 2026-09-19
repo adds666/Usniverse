@@ -1,0 +1,3 @@
+---
+# ROG_Ubuntu -> CT110 Tailscale -> macbookpro/pve -> target LXC
+ansible_ssh_common_args: "-o ProxyJump=admin@100.122.95.117,root@100.69.158.73"

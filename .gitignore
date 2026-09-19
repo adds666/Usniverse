@@ -25,3 +25,12 @@ opt/**/data/
 **/data/
 **/.openclaw/
 **/workspace/
+
+# Local migration snapshots and runtime credentials
+*.pre-*
+*.tar
+*.tar.gz
+*.db
+*.db-wal
+*.db-shm
+.env

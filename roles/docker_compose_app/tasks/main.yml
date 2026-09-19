@@ -36,6 +36,7 @@
   when: (docker_compose_app_state | default("present")) == "present"
 
 - name: Render .env (if any)
+  no_log: true
   ansible.builtin.template:
     src: env.j2
     dest: "{{ docker_compose_app_dir }}/.env"

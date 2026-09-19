@@ -1,11 +1,12 @@
 ---
-- name: Configure existing Homepage on ct110 to use ct119 SearXNG
+- name: Maintain existing Homepage services and search
   hosts: ct110
   become: true
   gather_facts: true
 
   vars:
-    earls_wol_port: 8787
+    homepage_matrix_url: "{{ edge_proxy_public_base_url }}:8008"
+    servernode_ip: "192.168.1.104"
 
   tasks:
     - name: Ensure Homepage config directory exists
@@ -30,58 +31,68 @@
               target: _blank
       register: homepage_widgets
 
-    - name: Ensure Homepage services.yaml contains AI search entries
-      ansible.builtin.blockinfile:
+    - name: Check if Homepage services.yaml already exists
+      ansible.builtin.stat:
         path: "{{ homepage_config_dir }}/services.yaml"
-        create: true
+      register: homepage_services_file
+
+    - name: Read existing Homepage services.yaml
+      ansible.builtin.slurp:
+        path: "{{ homepage_config_dir }}/services.yaml"
+      no_log: true
+      register: homepage_services_slurp
+      when: homepage_services_file.stat.exists
+
+    - name: Parse existing Homepage groups as YAML
+      no_log: true
+      ansible.builtin.set_fact:
+        homepage_existing_media: "{{ ((homepage_services_slurp.content | b64decode | from_yaml | selectattr('Media', 'defined') | first | default({})).get('Media', [])) | combine }}"
+        homepage_existing_servernode: "{{ ((homepage_services_slurp.content | b64decode | from_yaml | selectattr('ServerNode', 'defined') | first | default({})).get('ServerNode', [])) | combine }}"
+      when: homepage_services_file.stat.exists
+
+    - name: Preserve existing Homepage widget and action values
+      no_log: true
+      ansible.builtin.set_fact:
+        homepage_wol_url: "{{ homepage_existing_servernode.get('Wake ServerNode', {}).get('href', '') }}"
+        homepage_shutdown_url: "{{ homepage_existing_servernode.get('Shutdown ServerNode', {}).get('href', '') }}"
+        homepage_jellyfin_widget_key: "{{ homepage_existing_media.get('Jellyfin', {}).get('widget', {}).get('key', '') }}"
+        homepage_ombi_widget_key: "{{ homepage_existing_media.get('Ombi', {}).get('widget', {}).get('key', '') }}"
+        homepage_openclaw_url: "{{ homepage_existing_servernode.get('OpenClaw', {}).get('href', edge_proxy_public_base_url ~ ':18789') }}"
+        homepage_openclaw_site_monitor: "{{ homepage_existing_servernode.get('OpenClaw', {}).get('siteMonitor', edge_proxy_public_base_url ~ ':18789') }}"
+        homepage_7dtd_ping: "{{ homepage_existing_servernode.get('7 Days to Die', {}).get('ping', '192.168.1.77') }}"
+      when: homepage_services_file.stat.exists
+
+    - name: Set Homepage defaults when no prior services file exists
+      ansible.builtin.set_fact:
+        homepage_wol_url: ""
+        homepage_shutdown_url: ""
+        homepage_jellyfin_widget_key: ""
+        homepage_ombi_widget_key: ""
+        homepage_openclaw_url: "{{ edge_proxy_public_base_url }}:18789"
+        homepage_openclaw_site_monitor: "{{ edge_proxy_public_base_url }}:18789"
+        homepage_7dtd_ping: "192.168.1.77"
+      when: not homepage_services_file.stat.exists
+
+    - name: Validate rendered Homepage YAML before writing
+      no_log: true
+      ansible.builtin.assert:
+        that:
+          - lookup('template', '../roles/homepage_services/templates/services.yaml.j2') | from_yaml is sequence
+
+    - name: Render managed Homepage services layout
+      no_log: true
+      ansible.builtin.template:
+        src: ../roles/homepage_services/templates/services.yaml.j2
+        dest: "{{ homepage_config_dir }}/services.yaml"
+        owner: admin
+        group: admin
+        mode: "0644"
         backup: true
-        marker: "# {mark} USNIVERSE MANAGED AI SEARCH GROUP"
-        insertafter: EOF
-        block: |
-          - AI Search:
-              - SearXNG:
-                  href: "{{ edge_proxy_public_base_url }}:8080"
-                  description: Dedicated search engine exposed through edge-proxy for remote users
       register: homepage_services
-
-    - name: Remove old unmanaged ComfyUI Homepage entry
-      ansible.builtin.replace:
-        path: "{{ homepage_config_dir }}/services.yaml"
-        regexp: '(?ms)^    - ComfyUI:\n        href: http://100\.122\.95\.117:8188\n        description: Node-based image workflow UI\n'
-        replace: ''
-      register: homepage_comfyui_cleanup
-
-    - name: Remove old unmanaged edge-proxy Server Control entries
-      ansible.builtin.replace:
-        path: "{{ homepage_config_dir }}/services.yaml"
-        regexp: '(?ms)^- Server Control:\n    - Wake ServerNode:\n        icon: mdi-power\n        href: "http://100\.122\.95\.117:8787/wol\?token=[^"]+"\n        ping: 192\.168\.1\.104\n        description: "WOL via edge-proxy webhook"\n\n    - Shutdown ServerNode:\n        icon: mdi-power-off\n        href: "http://100\.122\.95\.117:8787/shutdown\?token=[^"]+"\n        description: "Shutdown via edge-proxy webhook"\n        ping: 192\.168\.1\.104\n\n'
-        replace: ''
-      register: homepage_old_server_control_cleanup
-
-    - name: Ensure Homepage services.yaml contains Server Control entries
-      ansible.builtin.blockinfile:
-        path: "{{ homepage_config_dir }}/services.yaml"
-        create: true
-        backup: true
-        marker: "# {mark} USNIVERSE MANAGED SERVER CONTROL GROUP"
-        insertafter: EOF
-        block: |
-          - Server Control:
-              - Wake ServerNode:
-                  icon: mdi-power
-                  href: "http://{{ earls_wol_host }}:{{ earls_wol_port }}/wol?token={{ earls_wol_token }}"
-                  ping: 192.168.1.104
-                  description: WOL via earls-edge01 relay
-
-              - Shutdown ServerNode:
-                  icon: mdi-power-off
-                  href: "http://{{ earls_wol_host }}:{{ earls_wol_port }}/shutdown?token={{ earls_wol_token }}"
-                  ping: 192.168.1.104
-                  description: Shutdown via earls-edge01 relay
-      register: homepage_server_control
 
     - name: Check if Homepage container exists
       ansible.builtin.command: docker container inspect {{ homepage_container_name }}
+      no_log: true
       register: homepage_container
       failed_when: false
       changed_when: false
@@ -90,4 +101,17 @@
       ansible.builtin.command: docker restart {{ homepage_container_name }}
       when:
         - homepage_container.rc == 0
-        - homepage_widgets is changed or homepage_services is changed or homepage_server_control is changed or homepage_old_server_control_cleanup is changed or homepage_comfyui_cleanup is changed
+        - homepage_widgets is changed or homepage_services is changed
+
+    - name: Refresh Homepage generated page after layout updates
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3000/api/revalidate
+        headers:
+          Host: "{{ edge_proxy_public_base_url | urlsplit('hostname') }}:3000"
+      register: homepage_revalidate
+      until: homepage_revalidate.status == 200
+      retries: 10
+      delay: 2
+      when:
+        - homepage_container.rc == 0
+        - homepage_widgets is changed or homepage_services is changed

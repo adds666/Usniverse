@@ -1,20 +1,24 @@
 proxmox_cluster_node_name: servernode
 lxc_rootfs_storage: local-zfs
 docker_lxc_ct_ids:
-  - 120
-  - 121
-  - 122
-  - 123
-  - 124
-  - 125
-  - 126
-  - 127
-  - 128
-  - 129
+- 120
+- 121
+- 122
+- 123
+- 124
+- 125
+- 126
+- 127
+- 128
+- 129
 nas_lxc_ct_ids:
-  - 122
-  - 123
-  - 124
-  - 125
-  - 126
-  - 129
+- 122
+- 123
+- 124
+- 125
+- 126
+- 129
+lxc_gw: 192.168.1.254
+lxc_dns: 192.168.1.254
+nas_host_mount_src: /mnt/pve/Global_Share_Servernode
+global_share_managed_by_pve: true

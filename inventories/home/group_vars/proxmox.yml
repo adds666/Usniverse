@@ -5,7 +5,7 @@ proxmox_api_user: ansible@pve
 proxmox_api_realm: pve
 proxmox_verify_ssl: false
 
-# stored in vault/vault.yml
+# stored in inventories/home/group_vars/all/vault.yml
 proxmox_api_token_id: "{{ vault_proxmox_token_id }}"
 proxmox_api_token_secret: "{{ vault_proxmox_token_secret }}"
 

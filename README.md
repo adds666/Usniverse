@@ -33,15 +33,23 @@ The inventory uses host aliases for Ansible. Each Proxmox host var can also carr
 | 114 | invidious | `pve` | `192.168.1.114` | yes | no |
 | 116 | n8n | `pve` | `192.168.1.116` | yes | yes |
 | 117 | synapse | `pve` | `192.168.1.117` | yes | no |
-| 118 | ombi | `pve` | `192.168.1.118` | yes | no |
+| 118 | ombi | `pve` | `192.168.1.118` | yes | yes |
 | 119 | searxng | `pve` | `192.168.1.119` | yes | yes |
 | 120 | comfyui | `servernode` | `192.168.1.120` | yes | yes |
 | 121 | openclaw | `servernode` | `192.168.1.121` | yes | yes |
+| 122 | sonarr | `servernode` | `192.168.1.122` | yes | yes |
+| 123 | radarr | `servernode` | `192.168.1.123` | yes | yes |
+| 124 | lidarr | `servernode` | `192.168.1.124` | yes | yes |
+| 125 | readarr | `servernode` | `192.168.1.125` | yes | yes |
+| 126 | bazarr | `servernode` | `192.168.1.126` | yes | yes |
+| 127 | prowlarr | `servernode` | `192.168.1.127` | yes | yes |
+| 128 | flaresolverr | `servernode` | `192.168.1.128` | yes | yes |
+| 129 | qbittorrent | `servernode` | `192.168.1.129` | yes | yes |
 
 Notes:
 
 - A separate `7dtd` container exists in Proxmox but is not represented in this repo.
-- Not every running service has a dedicated app deployment playbook yet. The repo currently mixes full deployment playbooks with infrastructure-only representation.
+- The remaining obvious infra-only containers are `ct112` (Immich), `ct114` (Invidious), and `ct117` (Synapse).
 
 ## Inventory Model
 
@@ -87,9 +95,19 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 
 - `playbooks/app_jellyfin_ct111.yml`
 - `playbooks/app_n8n_ct116.yml`
+- `playbooks/app_ombi_ct118.yml`
 - `playbooks/app_searxng_ct119.yml`
 - `playbooks/comfyui.yml`
 - `playbooks/app_openclaw_ct121.yml`
+- `playbooks/app_arr_suite_servernode.yml`
+- `playbooks/app_sonarr_ct122.yml`
+- `playbooks/app_radarr_ct123.yml`
+- `playbooks/app_lidarr_ct124.yml`
+- `playbooks/app_readarr_ct125.yml`
+- `playbooks/app_bazarr_ct126.yml`
+- `playbooks/app_prowlarr_ct127.yml`
+- `playbooks/app_flaresolverr_ct128.yml`
+- `playbooks/app_qbittorrent_ct129.yml`
 
 ### Convenience wrappers
 
@@ -213,3 +231,14 @@ The current authoritative docs are:
 - `handovers/USNIVERSE_MASTER_HANDOVER.md`
 
 Older files under `handovers/` are historical snapshots. They are useful for root-cause history and migration context, but they are not the current source of truth. If an older handover conflicts with the README or the master handover, the current docs win.
+
+## Migrated media configuration
+
+The media cutover is recorded in [the migration handover](handovers/MEDIA_MIGRATION_2026-09-18_PROGRESS.md).
+The repeatable entrypoint is `playbooks/media_migration_reconcile.yml`; it maintains private
+routes, restored application connections, Homepage and Dashy. Credentials stay on their
+application hosts. It does not restore databases or copy media.
+
+See [Media automation and recovery](handovers/MEDIA_AUTOMATION.md) for commands, validation,
+backup locations and limitations. Readarr/Bazarr are excluded from the default app deployment
+unless `media_deploy_deferred=true` is explicitly supplied.

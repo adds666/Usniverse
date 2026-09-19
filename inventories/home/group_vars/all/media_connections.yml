@@ -1,0 +1,30 @@
+---
+# Non-secret desired state. API credentials are read on the application host.
+media_connections:
+  qbittorrent:
+    host: 192.168.1.129
+    port: 8080
+    retired_trust: ['100.84.166.81/32', '192.168.1.84/32']
+    trusted_hosts: ['192.168.1.122/32', '192.168.1.123/32', '192.168.1.124/32', '192.168.1.127/32']
+  prowlarr_url: http://192.168.1.127:9696
+  flaresolverr_url: http://192.168.1.128:8191
+  applications:
+    sonarr: http://192.168.1.122:8989
+    radarr: http://192.168.1.123:7878
+    lidarr: http://192.168.1.124:8686
+  roots:
+    sonarr:
+      - /volume1/Global_Share/Media/Movies/TV Series
+      - /volume1/Global_Share/Media/Movies/Kids TV
+    radarr:
+      - /volume1/Global_Share/Media/Movies/Comedy
+      - /volume1/Global_Share/Media/Movies/Documentary
+      - /volume1/Global_Share/Media/Movies/Feature Film
+      - /volume1/Global_Share/Media/Movies/Kids
+      - /volume1/Global_Share/Media/Movies/Christmas
+    lidarr:
+      - /volume1/Global_Share/Media/Music
+  ombi_host: 192.168.1.110
+  ombi_roots:
+    sonarr: /volume1/Global_Share/Media/Movies/TV Series
+    radarr: /volume1/Global_Share/Media/Movies/Feature Film

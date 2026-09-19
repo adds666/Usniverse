@@ -1,10 +1,16 @@
 # USNIVERSE MASTER HANDOVER
 
-Canonical date: 2026-04-19  
-Audience: human operators and future AI agents  
+Canonical date: 2026-09-19
+Audience: human operators and future AI agents
 Status: current source of truth for the repo as it exists today
 
 If an older handover conflicts with this file, this file wins.
+
+For the completed media cutover, current endpoints, retained backups and follow-up items,
+see [Media migration progress](MEDIA_MIGRATION_2026-09-18_PROGRESS.md).
+For repeatable configuration and recovery boundaries, see [Media automation](MEDIA_AUTOMATION.md).
+Those records supersede older media-state descriptions below. Immich and Dashy still run on UbuntuVM;
+CT125/126 remain stopped and are excluded from default app deployment.
 
 ## 1. Project Definition
 
@@ -29,18 +35,19 @@ The repo uses Ansible host aliases for Proxmox nodes:
 | Inventory alias | Actual Proxmox node name | Purpose |
 | --- | --- | --- |
 | `pve` | `macbookpro` | primary Proxmox node |
+| `samsung` | `samsung` | secondary Proxmox node with local LVM-thin storage |
 | `servernode` | `servernode` | secondary Proxmox node |
+| `toshiba` | `toshiba` | secondary Proxmox node with local LVM-thin storage |
 
 Important:
 
 - `inventories/home/group_vars/lxc.yml` uses `node: pve` or `node: servernode`, meaning the Ansible alias.
-- `inventories/home/group_vars/proxmox.yml` still contains `proxmox_node: macbookpro`, which is the actual Proxmox node name used in Proxmox-specific contexts.
+- `inventories/home/group_vars/proxmox.yml` still contains `proxmox_node: macbookpro`, which is the actual primary Proxmox node name used in Proxmox-specific contexts.
 
 ### 2.2 Network conventions
 
 - LAN: `192.168.1.0/24`
-- Most managed CTs follow `CT ID == last octet of IP`
-- `ct219` is the intentional exception that still lives in the `2xx` range
+- Managed CTs currently follow `CT ID == last octet of IP`
 
 ### 2.3 Access model
 
@@ -55,16 +62,21 @@ Important:
 | 110 | edge-proxy | `pve` | 110 | `192.168.1.110` | yes | no | ingress, Tailscale, DNAT, existing Homepage Docker host |
 | 111 | jellyfin | `pve` | 111 | `192.168.1.111` | yes | yes | app playbook plus static compose asset |
 | 112 | immich | `pve` | 112 | `192.168.1.112` | yes | no | infra represented, app playbook absent |
-| 113 | ollama | `servernode` | 113 | `192.168.1.113` | yes | verification only | bare-metal `systemd` service for NVIDIA access; renumbered from `213` |
 | 114 | invidious | `pve` | 114 | `192.168.1.114` | yes | no | service known, playbook absent |
-| 115 | openwebui | `servernode` | 115 | `192.168.1.115` | yes | yes | renumbered from `215` |
 | 116 | n8n | `pve` | 116 | `192.168.1.116` | yes | yes | playbook writes compose inline |
 | 117 | synapse | `pve` | 117 | `192.168.1.117` | yes | no | service known, playbook absent |
-| 118 | ombi | `pve` | 118 | `192.168.1.118` | yes | no | service known, playbook absent |
-| 119 | searxng | `pve` | 119 | `192.168.1.119` | yes | yes | dedicated web search backend for Open WebUI and Homepage |
+| 118 | ombi | `pve` | 118 | `192.168.1.118` | yes | yes | dedicated app playbook present |
+| 119 | searxng | `pve` | 119 | `192.168.1.119` | yes | yes | dedicated web search backend for Homepage and AI links |
 | 120 | comfyui | `servernode` | 120 | `192.168.1.120` | yes | yes | GPU-enabled workload |
 | 121 | openclaw | `servernode` | 121 | `192.168.1.121` | yes | yes | builds local image from upstream repo |
-| 219 | immich-ml | `servernode` | 219 | `192.168.1.219` | yes | no | still intentionally `219` |
+| 122 | sonarr | `servernode` | 122 | `192.168.1.122` | yes | yes | part of the media stack |
+| 123 | radarr | `servernode` | 123 | `192.168.1.123` | yes | yes | part of the media stack |
+| 124 | lidarr | `servernode` | 124 | `192.168.1.124` | yes | yes | part of the media stack |
+| 125 | readarr | `servernode` | 125 | `192.168.1.125` | yes | yes | part of the media stack |
+| 126 | bazarr | `servernode` | 126 | `192.168.1.126` | yes | yes | part of the media stack |
+| 127 | prowlarr | `servernode` | 127 | `192.168.1.127` | yes | yes | part of the media stack |
+| 128 | flaresolverr | `servernode` | 128 | `192.168.1.128` | yes | yes | part of the media stack |
+| 129 | qbittorrent | `servernode` | 129 | `192.168.1.129` | yes | yes | part of the media stack |
 
 Outside this repo:
 
@@ -173,13 +185,20 @@ Operationally, `edge_proxy_dnat.yml` is the better source for rule data because 
 ### 5.4 Application and service playbooks
 
 - `playbooks/app_jellyfin_ct111.yml`
-- `playbooks/app_ollama_ct113.yml`
-  - verification helper for the bare-metal Ollama service on `ct113`
-- `playbooks/app_openwebui_ct115.yml`
 - `playbooks/app_n8n_ct116.yml`
+- `playbooks/app_ombi_ct118.yml`
 - `playbooks/app_searxng_ct119.yml`
 - `playbooks/comfyui.yml`
 - `playbooks/app_openclaw_ct121.yml`
+- `playbooks/app_arr_suite_servernode.yml`
+- `playbooks/app_sonarr_ct122.yml`
+- `playbooks/app_radarr_ct123.yml`
+- `playbooks/app_lidarr_ct124.yml`
+- `playbooks/app_readarr_ct125.yml`
+- `playbooks/app_bazarr_ct126.yml`
+- `playbooks/app_prowlarr_ct127.yml`
+- `playbooks/app_flaresolverr_ct128.yml`
+- `playbooks/app_qbittorrent_ct129.yml`
 
 ### 5.5 Convenience helper playbooks
 
@@ -203,7 +222,7 @@ Do not point Ansible at the inventory directory itself.
 Example:
 
 ```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/lxc_ssh.yml --limit servernode -e "{\"lxc_target_ids\":[115]}"
+ansible-playbook -i inventories/home/hosts.yml playbooks/lxc_ssh.yml --limit servernode -e "{\"lxc_target_ids\":[120]}"
 ```
 
 Key semantics:
@@ -217,7 +236,7 @@ Key semantics:
 Example:
 
 ```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/ct_bootstrap.yml --limit servernode -e "{\"ct_ids\":[115]}"
+ansible-playbook -i inventories/home/hosts.yml playbooks/ct_bootstrap.yml --limit servernode -e "{\"ct_ids\":[120]}"
 ```
 
 Important:
@@ -228,8 +247,8 @@ Important:
 ### 6.3 Baseline and Docker
 
 ```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/base_lxc.yml --limit ct115
-ansible-playbook -i inventories/home/hosts.yml playbooks/docker_host.yml --limit ct115
+ansible-playbook -i inventories/home/hosts.yml playbooks/base_lxc.yml --limit ct120
+ansible-playbook -i inventories/home/hosts.yml playbooks/docker_host.yml --limit ct120
 ansible-playbook -i inventories/home/hosts.yml playbooks/pve_docker_lxc_fix.yml --limit servernode
 ```
 
@@ -238,10 +257,10 @@ ansible-playbook -i inventories/home/hosts.yml playbooks/pve_docker_lxc_fix.yml 
 Examples:
 
 ```bash
-ansible-playbook -i inventories/home/hosts.yml playbooks/app_openwebui_ct115.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_searxng_ct119.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/homepage_ct110.yml
 ansible-playbook -i inventories/home/hosts.yml playbooks/app_openclaw_ct121.yml
+ansible-playbook -i inventories/home/hosts.yml playbooks/app_arr_suite_servernode.yml
 ```
 
 ### 6.5 Update all Docker workloads
@@ -328,8 +347,6 @@ The parameterized DNAT rules in `group_vars/all/edge_proxy_dnat.yml` currently p
 | 3579 | `192.168.1.118:3579` | Ombi |
 | 8008 | `192.168.1.117:8008` | Synapse |
 | 5678 | `192.168.1.116:5678` | n8n |
-| 8081 | `192.168.1.115:3000` | OpenWebUI |
-| 11435 | `192.168.1.113:11434` | Ollama |
 | 4000 | `192.168.1.114:3000` | Invidious |
 | 8188 | `192.168.1.120:8188` | ComfyUI |
 | 18789 | `192.168.1.121:18789` | OpenClaw |
@@ -367,35 +384,19 @@ Homepage itself is assumed to already exist on CT110. The repo does not currentl
 - also has a static compose asset at `files/ct111/jellyfin/docker-compose.yml`
 - currently uses host paths under `/opt/jellyfin`, `/data/media`, `/data/transcode`
 
-### 10.3 Ollama (CT113)
-
-- native `systemd` service, not Docker-managed
-- listens on `192.168.1.113:11434`
-- `playbooks/app_ollama_ct113.yml` is verification-only so the repo does not try to replace the live GPU-oriented setup
-- no models are pulled by the repo
-
-### 10.4 OpenWebUI (CT115)
-
-- Docker-based
-- maps `3000:8080`
-- depends on `OLLAMA_BASE_URL=http://192.168.1.113:11434`
-- now enables built-in web search against `http://192.168.1.119:8080/search?q=<query>`
-- `ENABLE_PERSISTENT_CONFIG=false` is an intentional determinism choice
-- because the relevant web-search settings are PersistentConfig values in Open WebUI, keeping persistent config disabled is what makes the Ansible-managed environment authoritative
-
-### 10.5 n8n (CT116)
+### 10.3 n8n (CT116)
 
 - Docker-based
 - current playbook writes compose inline rather than using `docker_compose_app`
 - current playbook sets `N8N_SECURE_COOKIE=false`
 
-### 10.6 ComfyUI (CT120)
+### 10.4 ComfyUI (CT120)
 
 - Docker-based GPU workload
 - uses local payload from `files/ct120/comfyui/`
 - configures NVIDIA toolkit inside the CT before bringing the compose project up
 
-### 10.7 OpenClaw (CT121)
+### 10.5 OpenClaw (CT121)
 
 - Docker-based
 - clones upstream source into the CT
@@ -403,17 +404,20 @@ Homepage itself is assumed to already exist on CT110. The repo does not currentl
 - points at Ollama on `192.168.1.113:11434`
 - publishes `18789` and `18790`, with `18789` exposed through edge-proxy
 
-### 10.8 Services without dedicated deployment playbooks
+### 10.6 Services without dedicated deployment playbooks
 
 These services are clearly part of the environment but are not fully codified as dedicated app playbooks in this repo yet:
 
 - Immich (`ct112`)
 - Invidious (`ct114`)
 - Synapse (`ct117`)
-- Ombi (`ct118`)
-- Immich ML (`ct219`)
 
 That is current repo reality, not a documentation omission.
+
+### 10.7 Media stack on servernode
+
+- `playbooks/app_arr_suite_servernode.yml` is a convenience wrapper that imports the individual app playbooks for `ct122` through `ct129`
+- Sonarr, Radarr, Lidarr, Readarr, Bazarr, Prowlarr, FlareSolverr, and qBittorrent each also have their own dedicated CT-specific playbook
 
 ## 11. Current Documentation Policy
 
@@ -428,7 +432,6 @@ The other files under `handovers/` are historical snapshots. They are still usef
 
 These are intentional or known aspects of the current repo state:
 
-- `ct219` has not yet been renumbered into the `1xx` convention
 - two ingress playbooks exist and represent the same intent in different styles
 - CT110 helper playbooks still exist as convenience wrappers
 - `playbooks/pve_global_share_mount.yml` still carries a legacy `pve_` filename
@@ -455,6 +458,5 @@ If a service-specific issue needs migration history or old root-cause details, c
 - Synapse / proxyjump history
 - n8n bootstrap history
 - Invidious patching notes
-- Ollama / OpenWebUI migration history
 
 Use those as historical references only. Do not treat them as the current state contract.

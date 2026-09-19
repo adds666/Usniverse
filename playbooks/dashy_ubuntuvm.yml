@@ -1,0 +1,27 @@
+---
+- name: Maintain Dashy media links and ServerNode entry
+  hosts: ubuntuvm
+  become: false
+  gather_facts: false
+  tasks:
+    - name: Create user-owned automation directory
+      ansible.builtin.file:
+        path: /home/ubuntu/.local/lib/usniverse
+        state: directory
+        mode: '0700'
+    - name: Install scoped Dashy updater
+      ansible.builtin.copy:
+        src: ../scripts/media/dashy.py
+        dest: /home/ubuntu/.local/lib/usniverse/dashy.py
+        mode: '0700'
+    - name: Install non-secret dashboard specification
+      ansible.builtin.copy:
+        content: '{{ dashy_migration | to_nice_json }}'
+        dest: /home/ubuntu/.local/lib/usniverse/dashy.json
+        mode: '0600'
+    - name: Reconcile existing Dashy configuration
+      ansible.builtin.command:
+        argv: "{{ ['python3', '/home/ubuntu/.local/lib/usniverse/dashy.py', '/home/ubuntu/.local/lib/usniverse/dashy.json'] + (['--check'] if media_connections_check | default(false) | bool else []) }}"
+      register: dashy_update
+      changed_when: (dashy_update.stdout | from_json).changed
+      when: not ansible_check_mode

@@ -1,7 +1,7 @@
 ---
 - name: Ensure host NAS mount exists
   ansible.builtin.raw: |
-    bash -lc 'set -e; test -d "{{ nas_host_mount_src }}" && ls -la "{{ nas_host_mount_src }}" | head'
+    bash -lc 'set -e; findmnt --noheadings --types nfs,nfs4 --mountpoint "{{ nas_host_mount_src }}"'
   changed_when: false
 
 - name: Bind-mount NAS into LXCs (idempotent)
@@ -18,6 +18,12 @@
         exit 0
       fi
 
+      # Refuse to create a second mount over an existing destination.
+      if pct config "$ID" | tr "," "\n" | grep -qxF "mp=${DST}"; then
+        echo "CT ${ID}: ${DST} already has a different mount source; reconcile it before rerunning" >&2
+        exit 1
+      fi
+
       # Find next free mp index for this CT
       USED="$(pct config "$ID" | sed -n "s/^mp\([0-9]\+\):.*/\1/p" | sort -n | tail -n 1)"
       if [ -z "$USED" ]; then
@@ -30,3 +36,5 @@
       echo "CT ${ID}: set mp${IDX} ${SRC} -> ${DST}"
     '
   loop: "{{ nas_lxc_ct_ids }}"
+  register: nas_bind_result
+  changed_when: "'set mp' in nas_bind_result.stdout"
