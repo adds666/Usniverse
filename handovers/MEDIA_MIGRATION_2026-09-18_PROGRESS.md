@@ -129,3 +129,25 @@ User-requested adjustment: removed Sonarr, Radarr, Lidarr, Prowlarr and qBittorr
 - Publication branch: `migration/media-stack-20260919` in `adds666/Usniverse`, prepared in an isolated worktree at `/tmp/usniverse-media-publish`. The original working directory and its pre-existing branch were preserved.
 
 See [Media automation and recovery](MEDIA_AUTOMATION.md) for the run commands and recovery boundary. GitHub contains configuration/code; application-data archives remain on the documented hosts and have not been uploaded to GitHub.
+
+## Post-reboot proxy repair — 2026-09-19
+
+After ServerNode rebooted, all five private media URLs reset connections even though the
+application containers and NAS mount were healthy. The boot journal explicitly reported
+that the five media socket startup jobs were deleted to break an ordering cycle.
+
+Cause: the socket units were installed under `sockets.target` but also ordered after
+`network-online.target` and `tailscaled.service`, which depend on later boot stages.
+Removed that ordering from the socket units on both ServerNode and CT110. `FreeBind=true`
+already allows the private address to appear after the socket starts. Forwarding services
+retain their network ordering.
+
+Applied the corrected Ansible playbook to both hosts. All five media pages returned HTTP 200;
+all five ServerNode sockets were active; `systemd-analyze verify --man=no default.target`
+completed successfully. Added a regression check for the conflicting socket dependencies.
+A second full host reboot was not performed.
+
+The boot audit also observed CT125/126 running with existing `onboot: 1` settings, despite
+being deferred earlier. The proxy repair did not change those containers. Proxmox also waited
+for cluster quorum during guest startup; the five media listeners remaining down was caused
+by the separate socket ordering bug above.

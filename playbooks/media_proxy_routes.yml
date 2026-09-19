@@ -21,8 +21,8 @@
         content: |
           [Unit]
           Description=Usniverse {{ item.name }} private media listener
-          After=network-online.target tailscaled.service
-          Wants=network-online.target
+          # Sockets start before basic.target; network-online ordering creates a boot cycle.
+          # FreeBind allows the private address to appear after the listener starts.
           [Socket]
           {% for address in media_bind_addresses %}
           ListenStream={{ address }}:{{ item.port }}
