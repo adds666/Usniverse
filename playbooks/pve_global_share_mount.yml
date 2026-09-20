@@ -5,10 +5,10 @@
   become: true
 
   vars:
-    global_share_server: "192.168.1.84"
+    global_share_server: "{{ nas_server | default('192.168.1.84') }}"
     global_share_export: "/volume1/Global_Share"
-    global_share_path: "/mnt/pve/Global_Share"
-    global_share_opts: "vers=3,rw,hard,timeo=600,retrans=2,_netdev"
+    global_share_path: "{{ nas_host_mount_src | default('/mnt/pve/Global_Share') }}"
+    global_share_opts: "{{ nas_host_mount_options | default('vers=3,rw,hard,timeo=600,retrans=2,_netdev') }}"
 
   pre_tasks:
     - name: Verify the existing PVE-managed NFS mount

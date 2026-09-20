@@ -1,0 +1,140 @@
+---
+# Standalone separation is a backed-up maintenance operation, not an automatic role.
+- name: Schedule ServerNode wake through the existing Earls-edge relay
+  hosts: ct110
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install authenticated wake client using the existing local secret
+      ansible.builtin.copy:
+        src: ../scripts/power/wake_servernode.py
+        dest: /usr/local/sbin/usniverse-wake-servernode.py
+        mode: '0700'
+    - name: Install wake service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-servernode-wake.service
+        content: |
+          [Unit]
+          Description=Wake ServerNode through Earls-edge
+          After=network-online.target wol-webhook.service
+          Wants=network-online.target
+          StartLimitIntervalSec=900
+          StartLimitBurst=5
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 /usr/local/sbin/usniverse-wake-servernode.py
+          Restart=on-failure
+          RestartSec=60
+    - name: Install midnight UK wake timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-servernode-wake.timer
+        content: |
+          [Unit]
+          Description=Wake ServerNode at midnight UK time
+          [Timer]
+          OnCalendar=*-*-* 00:00:00 Europe/London
+          Persistent=false
+          AccuracySec=1s
+          Unit=usniverse-servernode-wake.service
+          [Install]
+          WantedBy=timers.target
+    - name: Enable nightly wake
+      ansible.builtin.systemd_service:
+        name: usniverse-servernode-wake.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+
+- name: Retry Ombi requests within ServerNode running hours
+  hosts: ct118
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Set hourly retries from 0015 to 0615 through Ombi API
+      ansible.builtin.script: ../scripts/power/ombi_retry_schedule.py
+      args:
+        executable: python3
+      register: retry_schedule
+      changed_when: "'\"changed\": true' in retry_schedule.stdout"
+      no_log: true
+
+- name: Maintain standalone boot dependencies and graceful shutdown
+  hosts: servernode
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check standalone conversion is complete
+      ansible.builtin.stat:
+        path: /etc/pve/corosync.conf
+      register: cluster_config
+    - name: Require standalone operation
+      ansible.builtin.assert:
+        that:
+          - not cluster_config.stat.exists
+          - servernode_standalone | default(false) | bool
+    - name: Install NAS reachability check
+      ansible.builtin.copy:
+        src: ../scripts/power/wait_for_nas.py
+        dest: /usr/local/sbin/usniverse-wait-for-nas.py
+        mode: '0755'
+    - name: Install NAS readiness service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-nas-ready.service
+        content: |
+          [Unit]
+          Description=Wait for NAS over Tailscale before mounting media
+          Wants=network-online.target
+          Requires=tailscaled.service
+          After=network-online.target tailscaled.service
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 /usr/local/sbin/usniverse-wait-for-nas.py
+          RemainAfterExit=yes
+          TimeoutStartSec=190
+    - name: Persist media mount with NAS readiness dependency
+      ansible.posix.mount:
+        path: "{{ nas_host_mount_src }}"
+        src: "{{ nas_server }}:/volume1/Global_Share"
+        fstype: nfs
+        opts: "{{ nas_host_mount_options }}"
+        state: present
+    - name: Create guest startup dependency directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/pve-guests.service.d
+        state: directory
+        mode: '0755'
+    - name: Wait for NAS before starting guests
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/pve-guests.service.d/media-mount.conf
+        content: |
+          [Unit]
+          RequiresMountsFor={{ nas_host_mount_src }}
+          After=tailscaled.service
+    - name: Install graceful shutdown service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-servernode-shutdown.service
+        content: |
+          [Unit]
+          Description=Gracefully shut down ServerNode after overnight processing
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/systemctl --no-block poweroff
+    - name: Install 0630 UK shutdown timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-servernode-shutdown.timer
+        content: |
+          [Unit]
+          Description=Shut down ServerNode at 0630 UK time
+          [Timer]
+          OnCalendar=*-*-* 06:30:00 Europe/London
+          Persistent=false
+          AccuracySec=1s
+          Unit=usniverse-servernode-shutdown.service
+          [Install]
+          WantedBy=timers.target
+    - name: Enable overnight shutdown
+      ansible.builtin.systemd_service:
+        name: usniverse-servernode-shutdown.timer
+        enabled: true
+        state: started
+        daemon_reload: true

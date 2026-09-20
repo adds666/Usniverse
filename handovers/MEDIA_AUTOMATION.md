@@ -80,3 +80,7 @@ reactivating its old source to avoid duplicate automation or torrent clients.
 GitHub stores code, non-secret configuration, encrypted Vault values and documentation. It does not
 store application database archives, media, private keys or the Vault password. Automatic off-site
 application-data backups and a full disaster-recovery restore drill are not implemented by this change.
+
+## Standalone overnight operation
+
+See [ServerNode standalone handover](SERVERNODE_STANDALONE_2026-09-20.md) for the 2026-09-20 cluster separation, host-managed NAS mount, dedicated backup directory, and midnight–06:30 UK power schedule. Reconcile the schedule with `playbooks/servernode_overnight.yml`. This supersedes the earlier PVE-managed NAS mount arrangement on ServerNode.
