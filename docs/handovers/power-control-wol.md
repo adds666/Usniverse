@@ -75,3 +75,11 @@ Removed stale Homepage entries for:
 
 User browser -> Homepage on edge-proxy -> edge-proxy WOL proxy -> earls-edge01 WOL relay -> servernode LAN WOL/shutdown
 
+
+## Homepage status correction — 2026-09-20
+
+The power buttons' `ping` target is ServerNode's Tailscale address `100.74.248.75`, not its LAN address `192.168.1.104`. The sites use overlapping LAN ranges, so checking the remote LAN address from Homepage cannot reliably identify ServerNode. The 7DTD container check similarly uses `100.88.59.113`; this indicates container reachability, not game-server readiness.
+
+HTTP service cards use `siteMonitor` instead of putting URLs in `ping`. Power action URLs and their tokens are independent of status probes and were preserved. Probe configuration is retained in CT110 host variables and the Homepage Ansible template.
+
+Validation: Homepage revalidation succeeded, its own ping API reported the corrected Tailscale targets offline while those peers were offline, and HTTP checks returned 200 for Jellyfin, Ombi, Invidious, Matrix and n8n. SearXNG returned an actual HTTP 500. Ansible check mode reported zero changes against the patched live configuration. Earls-edge accepted the wake request, ServerNode cold-booted and all ten containers started automatically. Homepage then reported `alive: true` for both power-button indicators and the 7DTD container, completing the offline-to-online check.

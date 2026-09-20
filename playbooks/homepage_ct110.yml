@@ -59,7 +59,6 @@
         homepage_ombi_widget_key: "{{ homepage_existing_media.get('Ombi', {}).get('widget', {}).get('key', '') }}"
         homepage_openclaw_url: "{{ homepage_existing_servernode.get('OpenClaw', {}).get('href', edge_proxy_public_base_url ~ ':18789') }}"
         homepage_openclaw_site_monitor: "{{ homepage_existing_servernode.get('OpenClaw', {}).get('siteMonitor', edge_proxy_public_base_url ~ ':18789') }}"
-        homepage_7dtd_ping: "{{ homepage_existing_servernode.get('7 Days to Die', {}).get('ping', '192.168.1.77') }}"
       when: homepage_services_file.stat.exists
 
     - name: Set Homepage defaults when no prior services file exists
@@ -70,7 +69,6 @@
         homepage_ombi_widget_key: ""
         homepage_openclaw_url: "{{ edge_proxy_public_base_url }}:18789"
         homepage_openclaw_site_monitor: "{{ edge_proxy_public_base_url }}:18789"
-        homepage_7dtd_ping: "192.168.1.77"
       when: not homepage_services_file.stat.exists
 
     - name: Validate rendered Homepage YAML before writing

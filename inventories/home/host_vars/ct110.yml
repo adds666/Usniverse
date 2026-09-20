@@ -3,3 +3,7 @@ homepage_container_name: homepage
 edge_proxy_public_base_url: http://100.122.95.117
 earls_wol_host: "100.91.80.105"
 earls_wol_token: "{{ vault_earls_wol_token }}"
+
+# Probe the remote host through its unambiguous tailnet address.
+homepage_servernode_ping: "100.74.248.75"
+homepage_7dtd_ping: "100.88.59.113"

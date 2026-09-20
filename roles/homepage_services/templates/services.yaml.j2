@@ -2,7 +2,7 @@
     - Jellyfin:
         icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/jellyfin.png
         href: "{{ edge_proxy_public_base_url }}:8096"
-        ping: "{{ edge_proxy_public_base_url }}:8096"
+        siteMonitor: "{{ edge_proxy_public_base_url }}:8096"
         description: Media server
 {% if homepage_jellyfin_widget_key | default('') %}
         widget:
@@ -14,7 +14,7 @@
     - Ombi:
         icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/ombi.png
         href: "{{ edge_proxy_public_base_url }}:3579"
-        ping: "{{ edge_proxy_public_base_url }}:3579"
+        siteMonitor: "{{ edge_proxy_public_base_url }}:3579"
         description: Media requests
 {% if homepage_ombi_widget_key | default('') %}
         widget:
@@ -27,27 +27,27 @@
     - Invidious:
         icon: invidious.png
         href: "{{ edge_proxy_public_base_url }}:4000"
-        ping: "{{ edge_proxy_public_base_url }}:4000"
+        siteMonitor: "{{ edge_proxy_public_base_url }}:4000"
         description: Privacy-respecting YouTube frontend
 
 - Chat:
     - Matrix:
         icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/icons/matrix.svg
         href: "{{ homepage_matrix_url }}"
-        ping: "{{ homepage_matrix_url }}"
+        siteMonitor: "{{ homepage_matrix_url }}"
         description: Point your client at {{ homepage_matrix_url }}
 
 - ServerNode:
     - Wake ServerNode:
         icon: mdi-power
         href: "{{ homepage_wol_url }}"
-        ping: "{{ servernode_ip }}"
+        ping: "{{ homepage_servernode_ping }}"
         description: WOL via earls-edge01 relay
 
     - Shutdown ServerNode:
         icon: mdi-power-off
         href: "{{ homepage_shutdown_url }}"
-        ping: "{{ servernode_ip }}"
+        ping: "{{ homepage_servernode_ping }}"
         description: Shutdown via earls-edge01 relay
 
     - 7 Days to Die:
@@ -58,7 +58,7 @@
     - n8n:
         icon: n8n
         href: "{{ edge_proxy_public_base_url }}:5678"
-        ping: "{{ edge_proxy_public_base_url }}:5678"
+        siteMonitor: "{{ edge_proxy_public_base_url }}:5678"
         description: Workflow automation and integrations
 
     - OpenClaw:
@@ -71,5 +71,5 @@
     - SearXNG:
         icon: searxng
         href: "{{ edge_proxy_public_base_url }}:8080"
-        ping: "{{ edge_proxy_public_base_url }}:8080"
+        siteMonitor: "{{ edge_proxy_public_base_url }}:8080"
         description: Dedicated search engine exposed through edge-proxy
