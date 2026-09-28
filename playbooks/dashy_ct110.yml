@@ -1,0 +1,74 @@
+---
+# Reconcile migrated Dashy; private dashboard configuration stays outside Git.
+- name: Reconcile migrated Dashy on MacBookPro CT110
+  hosts: pve
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Require completed production validation before managing the live deployment
+      ansible.builtin.command:
+        argv: [pct, exec, '110', '--', test, -s, /opt/dashy/production-validation.json]
+      changed_when: false
+    - name: Require existing private dashboard configuration
+      ansible.builtin.command:
+        argv: [pct, exec, '110', '--', test, -s, '{{ item }}']
+      loop:
+        - /opt/dashy/source.env
+        - /opt/dashy/user-data/conf.yml
+      changed_when: false
+  tasks:
+    - name: Read dashboard container resources
+      ansible.builtin.command:
+        argv: [pct, config, '110']
+      register: dashy_ct_config
+      changed_when: false
+    - name: Keep sufficient memory for both dashboards
+      ansible.builtin.command:
+        argv: [pct, set, '110', --memory, '1024']
+      when: "'memory: 1024' not in dashy_ct_config.stdout"
+    - name: Create private host staging directory
+      ansible.builtin.file:
+        path: /root/usniverse-dashy-reconcile
+        state: directory
+        mode: '0700'
+    - name: Stage pinned application and boot configuration
+      ansible.builtin.copy:
+        src: '../files/dashy/{{ item }}'
+        dest: '/root/usniverse-dashy-reconcile/{{ item }}'
+        mode: '0600'
+      loop: [compose.json, dashy.service]
+      register: dashy_staged
+    - name: Inspect target configuration checksums
+      ansible.builtin.command:
+        argv: [pct, exec, '110', '--', sha1sum, '{{ "/opt/dashy/compose.json" if item.item == "compose.json" else "/etc/systemd/system/dashy.service" }}']
+      loop: '{{ dashy_staged.results }}'
+      register: dashy_target_checksums
+      changed_when: false
+      loop_control:
+        label: '{{ item.item }}'
+    - name: Install changed target configuration
+      ansible.builtin.command:
+        argv: [pct, push, '110', '/root/usniverse-dashy-reconcile/{{ item.item.item }}', '{{ "/opt/dashy/compose.json" if item.item.item == "compose.json" else "/etc/systemd/system/dashy.service" }}', '--perms', '{{ "0600" if item.item.item == "compose.json" else "0644" }}']
+      loop: '{{ dashy_target_checksums.results }}'
+      when: not item.stdout.startswith(item.item.checksum)
+      loop_control:
+        label: '{{ item.item.item }}'
+      notify: Reconcile Dashy containers
+    - name: Enable and start dashboard boot service
+      ansible.builtin.command:
+        argv: [pct, exec, '110', '--', systemctl, enable, --now, dashy.service]
+      register: dashy_enable
+      changed_when: "'Created symlink' in dashy_enable.stderr"
+    - name: Keep dashboard container running
+      ansible.builtin.command:
+        argv: [pct, exec, '110', '--', docker, compose, -f, /opt/dashy/compose.json, up, -d]
+      register: dashy_up
+      changed_when: "'Created' in dashy_up.stderr or 'Started' in dashy_up.stderr or 'Recreated' in dashy_up.stderr"
+  handlers:
+    - name: Reconcile Dashy containers
+      ansible.builtin.command:
+        argv: [pct, exec, '110', '--', systemctl, daemon-reload]
+      notify: Start Dashy
+    - name: Start Dashy
+      ansible.builtin.command:
+        argv: [pct, exec, '110', '--', systemctl, restart, dashy.service]

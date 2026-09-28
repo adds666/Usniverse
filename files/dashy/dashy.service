@@ -1,0 +1,15 @@
+[Unit]
+Description=Dashy dashboard
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/dashy
+ExecStart=/usr/bin/docker compose -f compose.json up -d
+ExecStop=/usr/bin/docker compose -f compose.json stop
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,26 @@
+{
+  "services": {
+    "dashy": {
+      "image": "lissy93/dashy@sha256:dd02c4cd11bc2bb1b40a086640560d083313c466a649ac5a890f397fb6f5b4c9",
+      "container_name": "Dashy",
+      "restart": "unless-stopped",
+      "ports": [
+        "4001:8080"
+      ],
+      "volumes": [
+        "./user-data:/app/user-data"
+      ],
+      "env_file": [
+        "./source.env"
+      ],
+      "mem_limit": "512m",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    }
+  }
+}

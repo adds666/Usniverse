@@ -1,5 +1,5 @@
 ---
-# Dashy remains on UbuntuVM; Immich has moved to MacBookPro CT112.
+# Historical source settings only. Dashy moved to MacBookPro CT110; Immich to CT112.
 dashy_migration:
   config_path: /home/ubuntu/DockerContainers/dashy/my-config.yml
   container: Dashy

@@ -10,7 +10,7 @@ For the completed media cutover, current endpoints, retained backups and follow-
 see [Media migration progress](MEDIA_MIGRATION_2026-09-18_PROGRESS.md).
 For repeatable configuration and recovery boundaries, see [Media automation](MEDIA_AUTOMATION.md).
 Those records supersede older media-state descriptions below. Immich now runs on MacBookPro CT112;
-see [Immich cutover](IMMICH_CUTOVER_2026-09-28.md) for its current state. Dashy remains on UbuntuVM;
+see [Immich cutover](IMMICH_CUTOVER_2026-09-28.md) for its current state. Dashy now runs alongside Homepage on CT110; see [Dashy cutover](DASHY_CUTOVER_2026-09-28.md). UbuntuVM has no running application containers;
 CT125/126 remain stopped and are excluded from default app deployment.
 
 ## 1. Project Definition
