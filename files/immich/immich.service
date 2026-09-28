@@ -1,0 +1,16 @@
+[Unit]
+Description=Immich photo service
+Requires=docker.service
+After=docker.service network-online.target
+RequiresMountsFor=/mnt/Global_Share
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/immich
+ExecStartPre=/usr/bin/test -f /mnt/Global_Share/Adam/Photos/upload/.immich
+ExecStart=/usr/bin/docker compose -f compose.json up -d
+ExecStop=/usr/bin/docker compose -f compose.json stop
+TimeoutStartSec=300
+TimeoutStopSec=180
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Immich access on MacBookPro Tailscale address
+After=tailscaled.service
+Wants=tailscaled.service
+[Socket]
+ListenStream=100.69.158.73:2283
+FreeBind=true
+NoDelay=true
+[Install]
+WantedBy=sockets.target

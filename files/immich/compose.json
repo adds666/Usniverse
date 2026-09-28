@@ -1,0 +1,66 @@
+{
+  "name": "immich",
+  "services": {
+    "database": {
+      "image": "registry.hub.docker.com/tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:90724186f0a3517cf6914295b5ab410db9ce23190a2d9d0b9dd6463e3fa298f0",
+      "env_file": [
+        "database.env"
+      ],
+      "volumes": [
+        "./postgres:/var/lib/postgresql/data"
+      ],
+      "command": [
+        "postgres",
+        "-c",
+        "shared_preload_libraries=vectors.so",
+        "-c",
+        "search_path=\"$$user\", public, vectors",
+        "-c",
+        "shared_buffers=256MB"
+      ],
+      "shm_size": "128mb",
+      "mem_limit": "1200m",
+      "restart": "unless-stopped"
+    },
+    "redis": {
+      "image": "registry.hub.docker.com/library/redis:6.2-alpine@sha256:84882e87b54734154586e5f8abd4dce69fe7311315e2fc6d67c29614c8de2672",
+      "mem_limit": "128m",
+      "restart": "unless-stopped",
+      "volumes": [
+        "./redis:/data"
+      ]
+    },
+    "immich-server": {
+      "image": "ghcr.io/immich-app/immich-server@sha256:c15bff75068effb03f4355997d03dc7e0fc58720c2b54ad6f7f10d1bc57efaa5",
+      "env_file": [
+        "server.env"
+      ],
+      "volumes": [
+        "/mnt/Global_Share/Adam/Photos:/usr/src/app/upload"
+      ],
+      "ports": [
+        "2283:2283"
+      ],
+      "depends_on": [
+        "database",
+        "redis",
+        "immich-machine-learning"
+      ],
+      "mem_limit": "1600m",
+      "restart": "unless-stopped"
+    },
+    "immich-machine-learning": {
+      "image": "ghcr.io/immich-app/immich-machine-learning@sha256:a2501141440f10516d329fdfba2c68082e19eb9ba6016c061ac80d23beadf7f3",
+      "volumes": [
+        "./model-cache:/cache"
+      ],
+      "mem_limit": "1200m",
+      "restart": "unless-stopped",
+      "environment": {
+        "MACHINE_LEARNING_REQUEST_THREADS": "1",
+        "MACHINE_LEARNING_MODEL_INTER_OP_THREADS": "1",
+        "MACHINE_LEARNING_MODEL_INTRA_OP_THREADS": "2"
+      }
+    }
+  }
+}

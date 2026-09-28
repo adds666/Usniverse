@@ -9,7 +9,8 @@ If an older handover conflicts with this file, this file wins.
 For the completed media cutover, current endpoints, retained backups and follow-up items,
 see [Media migration progress](MEDIA_MIGRATION_2026-09-18_PROGRESS.md).
 For repeatable configuration and recovery boundaries, see [Media automation](MEDIA_AUTOMATION.md).
-Those records supersede older media-state descriptions below. Immich and Dashy still run on UbuntuVM;
+Those records supersede older media-state descriptions below. Immich now runs on MacBookPro CT112;
+see [Immich cutover](IMMICH_CUTOVER_2026-09-28.md) for its current state. Dashy remains on UbuntuVM;
 CT125/126 remain stopped and are excluded from default app deployment.
 
 ## 1. Project Definition
@@ -61,7 +62,7 @@ Important:
 | ---: | --- | --- | ---: | --- | --- | --- | --- |
 | 110 | edge-proxy | `pve` | 110 | `192.168.1.110` | yes | no | ingress, Tailscale, DNAT, existing Homepage Docker host |
 | 111 | jellyfin | `pve` | 111 | `192.168.1.111` | yes | yes | app playbook plus static compose asset |
-| 112 | immich | `pve` | 112 | `192.168.1.112` | yes | no | infra represented, app playbook absent |
+| 112 | immich | `pve` | 112 | `192.168.1.112` | yes | yes | production on standalone MacBookPro; guarded reconciliation playbook |
 | 114 | invidious | `pve` | 114 | `192.168.1.114` | yes | no | service known, playbook absent |
 | 116 | n8n | `pve` | 116 | `192.168.1.116` | yes | yes | playbook writes compose inline |
 | 117 | synapse | `pve` | 117 | `192.168.1.117` | yes | no | service known, playbook absent |
@@ -408,7 +409,6 @@ Homepage itself is assumed to already exist on CT110. The repo does not currentl
 
 These services are clearly part of the environment but are not fully codified as dedicated app playbooks in this repo yet:
 
-- Immich (`ct112`)
 - Invidious (`ct114`)
 - Synapse (`ct117`)
 

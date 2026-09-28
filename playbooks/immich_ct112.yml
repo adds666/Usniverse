@@ -1,0 +1,85 @@
+---
+# Reconcile an already restored and validated deployment. Never initializes/restores a DB.
+# Private database.env/server.env files remain on CT112 and are excluded from Git.
+- name: Reconcile migrated Immich and Tailscale ingress on MacBookPro
+  hosts: pve
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Require completed production validation before managing the live deployment
+      ansible.builtin.command:
+        argv: [pct, exec, '112', '--', test, -s, /opt/immich/production-validation.json]
+      changed_when: false
+    - name: Require existing private configuration and database
+      ansible.builtin.command:
+        argv: [pct, exec, '112', '--', test, -s, '{{ item }}']
+      loop:
+        - /opt/immich/server.env
+        - /opt/immich/database.env
+        - /opt/immich/postgres/PG_VERSION
+      changed_when: false
+  tasks:
+    - name: Create private host staging directory
+      ansible.builtin.file:
+        path: /root/usniverse-immich-reconcile
+        state: directory
+        mode: '0700'
+    - name: Stage pinned application and boot configuration
+      ansible.builtin.copy:
+        src: '../files/immich/{{ item }}'
+        dest: '/root/usniverse-immich-reconcile/{{ item }}'
+        mode: '0600'
+      loop: [compose.json, immich.service]
+      register: immich_staged
+    - name: Inspect target configuration checksums
+      ansible.builtin.command:
+        argv: [pct, exec, '112', '--', sha1sum, '{{ "/opt/immich/compose.json" if item.item == "compose.json" else "/etc/systemd/system/immich.service" }}']
+      loop: '{{ immich_staged.results }}'
+      register: immich_target_checksums
+      changed_when: false
+      loop_control:
+        label: '{{ item.item }}'
+    - name: Install changed target configuration
+      ansible.builtin.command:
+        argv: [pct, push, '112', '/root/usniverse-immich-reconcile/{{ item.item.item }}', '{{ "/opt/immich/compose.json" if item.item.item == "compose.json" else "/etc/systemd/system/immich.service" }}', '--perms', '{{ "0600" if item.item.item == "compose.json" else "0644" }}']
+      loop: '{{ immich_target_checksums.results }}'
+      when: not item.stdout.startswith(item.item.checksum)
+      loop_control:
+        label: '{{ item.item.item }}'
+      notify: Reconcile Immich containers
+    - name: Install Tailscale-only ingress units
+      ansible.builtin.copy:
+        src: '../files/immich/{{ item }}'
+        dest: '/etc/systemd/system/{{ item }}'
+        mode: '0644'
+      loop: [immich-tailscale.service, immich-tailscale.socket]
+      notify: Reload ingress
+    - name: Keep target boot service enabled
+      ansible.builtin.command:
+        argv: [pct, exec, '112', '--', systemctl, enable, immich.service]
+      register: immich_enable
+      changed_when: "'Created symlink' in immich_enable.stderr"
+    - name: Reconcile existing Immich containers
+      ansible.builtin.command:
+        argv: [pct, exec, '112', '--', docker, compose, -f, /opt/immich/compose.json, up, -d]
+      register: immich_up
+      changed_when: "'Created' in immich_up.stderr or 'Started' in immich_up.stderr or 'Recreated' in immich_up.stderr"
+    - name: Keep Tailscale ingress enabled
+      ansible.builtin.systemd_service:
+        name: immich-tailscale.socket
+        state: started
+        enabled: true
+        daemon_reload: true
+  handlers:
+    - name: Reconcile Immich containers
+      ansible.builtin.command:
+        argv: [pct, exec, '112', '--', systemctl, daemon-reload]
+      notify: Start Immich
+    - name: Start Immich
+      ansible.builtin.command:
+        argv: [pct, exec, '112', '--', systemctl, restart, immich.service]
+    - name: Reload ingress
+      ansible.builtin.systemd_service:
+        name: immich-tailscale.socket
+        state: restarted
+        daemon_reload: true

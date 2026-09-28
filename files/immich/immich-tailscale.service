@@ -1,0 +1,11 @@
+[Unit]
+Description=Proxy Tailscale Immich access to CT112
+Requires=immich-tailscale.socket
+After=network-online.target
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 192.168.1.112:2283
+DynamicUser=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
