@@ -1,0 +1,66 @@
+---
+- name: Maintain 7DTD CT204
+  hosts: servernode
+  gather_facts: false
+
+  vars:
+    ct_id: 204
+    ct_ip: 192.168.1.77/24
+    ct_gateway: 192.168.1.254
+    ct_dns: 192.168.1.254
+    ct_rootfs_min_gb: 50
+
+  tasks:
+    - name: Verify CT204 exists
+      ansible.builtin.command: "pct config {{ ct_id }}"
+      register: ct_config
+      changed_when: false
+
+    - name: Enforce network and resources
+      ansible.builtin.command: >
+        pct set {{ ct_id }}
+        --hostname 7dtd
+        --cores 24
+        --memory 32416
+        --swap 2080
+        --onboot 1
+        --nameserver {{ ct_dns }}
+        --net0 name=eth0,bridge=vmbr0,gw={{ ct_gateway }},hwaddr=BC:24:11:6E:8D:05,ip={{ ct_ip }},type=veth
+      changed_when: false
+
+    - name: Read rootfs size
+      ansible.builtin.shell: >
+        pct config {{ ct_id }} |
+        sed -n 's/^rootfs: .*size=\([0-9]\+\)G.*$/\1/p'
+      register: rootfs_size
+      changed_when: false
+
+    - name: Validate rootfs size
+      ansible.builtin.assert:
+        that:
+          - rootfs_size.stdout | length > 0
+        fail_msg: "Could not determine CT204 rootfs size"
+
+    - name: Grow rootfs if required
+      ansible.builtin.command: >
+        pct resize {{ ct_id }} rootfs {{ ct_rootfs_min_gb }}G
+      when: rootfs_size.stdout | int < ct_rootfs_min_gb
+
+    - name: Ensure TUN permission
+      ansible.builtin.lineinfile:
+        path: "/etc/pve/lxc/{{ ct_id }}.conf"
+        line: "lxc.cgroup2.devices.allow: c 10:200 rwm"
+
+    - name: Ensure TUN mount
+      ansible.builtin.lineinfile:
+        path: "/etc/pve/lxc/{{ ct_id }}.conf"
+        line: "lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file"
+
+    - name: Ensure AppArmor setting
+      ansible.builtin.lineinfile:
+        path: "/etc/pve/lxc/{{ ct_id }}.conf"
+        line: "lxc.apparmor.profile: unconfined"
+
+    - name: Show final configuration
+      ansible.builtin.command: "pct config {{ ct_id }}"
+      changed_when: false
