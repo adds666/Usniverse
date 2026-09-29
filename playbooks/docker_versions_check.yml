@@ -1,0 +1,20 @@
+---
+- name: Verify reviewed Docker versions and health on both Proxmox hosts
+  hosts: pve:servernode
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install non-secret verification script
+      ansible.builtin.copy:
+        src: ../scripts/docker/check_versions.py
+        dest: /root/usniverse-check-docker-versions.py
+        mode: '0700'
+    - name: Install reviewed version manifest
+      ansible.builtin.copy:
+        src: ../files/docker/versions-20260929.json
+        dest: /root/usniverse-docker-versions-20260929.json
+        mode: '0600'
+    - name: Verify running image IDs and health without changing applications
+      ansible.builtin.command:
+        argv: [python3, /root/usniverse-check-docker-versions.py, /root/usniverse-docker-versions-20260929.json, '{{ inventory_hostname }}']
+      changed_when: false

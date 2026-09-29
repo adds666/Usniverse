@@ -1,7 +1,7 @@
 {
   "services": {
     "dashy": {
-      "image": "lissy93/dashy@sha256:dd02c4cd11bc2bb1b40a086640560d083313c466a649ac5a890f397fb6f5b4c9",
+      "image": "lissy93/dashy@sha256:3fd136041ecc04e53342b17efe987091a72c6a6c2ffc8b468c30f0361990066c",
       "container_name": "Dashy",
       "restart": "unless-stopped",
       "ports": [

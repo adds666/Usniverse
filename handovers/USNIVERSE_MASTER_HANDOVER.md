@@ -1,5 +1,7 @@
 # USNIVERSE MASTER HANDOVER
 
+For the September 29 Docker updates, exact versions and recovery details, see [Docker updates](DOCKER_UPDATES_2026-09-29.md). This supersedes older application version records.
+
 Canonical date: 2026-09-19
 Audience: human operators and future AI agents
 Status: current source of truth for the repo as it exists today

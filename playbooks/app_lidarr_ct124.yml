@@ -27,7 +27,7 @@
         docker_compose_app_compose_yml: |
           services:
             lidarr:
-              image: lscr.io/linuxserver/lidarr:latest
+              image: lscr.io/linuxserver/lidarr@sha256:044d616beb43c5e7810991242c6a9c42b93ff238c8c0850684939634ea751208
               container_name: lidarr
               network_mode: host
               environment:

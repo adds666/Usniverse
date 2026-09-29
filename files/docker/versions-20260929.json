@@ -1,0 +1,212 @@
+{
+  "date": "2026-09-29",
+  "nodes": {
+    "pve": [
+      {
+        "ct": 110,
+        "container": "Dashy",
+        "service": "dashy",
+        "image": "lissy93/dashy@sha256:3fd136041ecc04e53342b17efe987091a72c6a6c2ffc8b468c30f0361990066c",
+        "image_id": "sha256:3fd136041ecc04e53342b17efe987091a72c6a6c2ffc8b468c30f0361990066c",
+        "version": "4.7.0"
+      },
+      {
+        "ct": 110,
+        "container": "homepage",
+        "service": "homepage",
+        "image": "ghcr.io/gethomepage/homepage@sha256:643bd0be730d40f69d58028a55d1a896739333e8815786df42bc97f109ecbe61",
+        "image_id": "sha256:643bd0be730d40f69d58028a55d1a896739333e8815786df42bc97f109ecbe61",
+        "version": "v2.4.0"
+      },
+      {
+        "ct": 111,
+        "container": "jellyfin",
+        "service": "jellyfin",
+        "image": "lscr.io/linuxserver/jellyfin@sha256:51252e7a416e703cdc3cd91e8a54673a2430cc80409be8a38abe511411577b95",
+        "image_id": "sha256:2e68d77a7543f915ea9491497907ffbc9a897d710f96610fc4115bde88d0a189",
+        "version": "12.1ubu2604-ls50"
+      },
+      {
+        "ct": 112,
+        "container": "immich-immich-server-1",
+        "service": "immich-server",
+        "image": "ghcr.io/immich-app/immich-server@sha256:d317916b28090c33eb36b308464ea391f8b7df1d850fcfea227a39ec879718c2",
+        "image_id": "sha256:d317916b28090c33eb36b308464ea391f8b7df1d850fcfea227a39ec879718c2",
+        "version": "v3.2.4"
+      },
+      {
+        "ct": 112,
+        "container": "immich-immich-machine-learning-1",
+        "service": "immich-machine-learning",
+        "image": "ghcr.io/immich-app/immich-machine-learning@sha256:e16c2f166a8174901959fdf85e2e4c7bd1ebc4b37e0b6655de97c41408a260c4",
+        "image_id": "sha256:e16c2f166a8174901959fdf85e2e4c7bd1ebc4b37e0b6655de97c41408a260c4",
+        "version": "v3.2.4"
+      },
+      {
+        "ct": 112,
+        "container": "immich-redis-1",
+        "service": "redis",
+        "image": "valkey/valkey@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd",
+        "image_id": "sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd",
+        "version": "9.1.2"
+      },
+      {
+        "ct": 112,
+        "container": "immich-database-1",
+        "service": "database",
+        "image": "ghcr.io/immich-app/postgres@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23",
+        "image_id": "sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23",
+        "version": "14.19; VectorChord 0.4.3; pgvector 0.8.1"
+      },
+      {
+        "ct": 114,
+        "container": "invidious_invidious_1",
+        "service": "invidious",
+        "image": "quay.io/invidious/invidious@sha256:6f5c81c1e29dd2bf55fc5745c5d034a71389b953c64a917181b1fd7bc4bfc938",
+        "image_id": "sha256:dd056cda4967bd70f602581422fa042dd04cea1e94e140fa91f91f55be542a51",
+        "version": "2.20260804.1"
+      },
+      {
+        "ct": 114,
+        "container": "invidious_postgres_1",
+        "service": "postgres",
+        "image": "postgres@sha256:c2427de38f998489d36de7ca3553db2134872c400f2b08be4b824e5c50e4d619",
+        "image_id": "sha256:e8316dc7ad10433764d3ca090f24602f17b288428e899ef7072d2001de8970fc",
+        "version": "14.24"
+      },
+      {
+        "ct": 114,
+        "container": "invidious_companion_1",
+        "service": "companion",
+        "image": "quay.io/invidious/invidious-companion@sha256:f15bc688aedd4bbb76cc636c7cc0cfff9b2b9f0734a4b831efbda7253b180525",
+        "image_id": "sha256:7941be9d865d3262026ca044a04541ed761a046e686fbae10d69545b56a3952b",
+        "version": "latest"
+      },
+      {
+        "ct": 116,
+        "container": "n8n",
+        "service": "n8n",
+        "image": "docker.n8n.io/n8nio/n8n@sha256:ffeb52485f78b1b06c9a832205853cf75da72a07a514c9a27724df85979d6c34",
+        "image_id": "sha256:ffeb52485f78b1b06c9a832205853cf75da72a07a514c9a27724df85979d6c34",
+        "version": "2.40.7"
+      },
+      {
+        "ct": 117,
+        "container": "synapse",
+        "service": "synapse",
+        "image": "matrixdotorg/synapse@sha256:6b95dd129e35e97e8032cb759e5db4a516a5f7ef6c98d34d716fea1ae239b62a",
+        "image_id": "sha256:6b95dd129e35e97e8032cb759e5db4a516a5f7ef6c98d34d716fea1ae239b62a",
+        "version": "1.161.0"
+      },
+      {
+        "ct": 118,
+        "container": "ombi",
+        "service": "ombi",
+        "image": "lscr.io/linuxserver/ombi@sha256:1394d2346ea40f3dff319a8efdb978aa115bc69cda5ed46ae40bf36ef4600da3",
+        "image_id": "sha256:1394d2346ea40f3dff319a8efdb978aa115bc69cda5ed46ae40bf36ef4600da3",
+        "version": "v4.53.10-ls270"
+      },
+      {
+        "ct": 119,
+        "container": "searxng",
+        "service": "searxng",
+        "image": "searxng/searxng@sha256:5286edb35782454ab8a102c5eff6b54bff745853191b46aeead95f225aa6dfb6",
+        "image_id": "sha256:5286edb35782454ab8a102c5eff6b54bff745853191b46aeead95f225aa6dfb6",
+        "version": "2026.9.25-12f8b6515"
+      }
+    ],
+    "servernode": [
+      {
+        "ct": 121,
+        "container": "openclaw-cli",
+        "service": "openclaw-cli",
+        "image": "openclaw:2026.9.6-local",
+        "image_id": "sha256:c534f4e9324fc760504d0d10e8e9ee17310e0a59564d503318bbfcfb450477e5",
+        "version": "2026.9.6",
+        "note": "Built locally from upstream v2026.9.6 with pnpm copy-import compatibility patch."
+      },
+      {
+        "ct": 121,
+        "container": "openclaw-gateway",
+        "service": "openclaw-gateway",
+        "image": "openclaw:2026.9.6-local",
+        "image_id": "sha256:c534f4e9324fc760504d0d10e8e9ee17310e0a59564d503318bbfcfb450477e5",
+        "version": "2026.9.6",
+        "note": "Built locally from upstream v2026.9.6 with pnpm copy-import compatibility patch."
+      },
+      {
+        "ct": 122,
+        "container": "sonarr",
+        "service": "sonarr",
+        "image": "lscr.io/linuxserver/sonarr@sha256:f247545d23ba8b233d6604575347e48a623fe6ad75dda02348bf81917f3b5c06",
+        "image_id": "sha256:f247545d23ba8b233d6604575347e48a623fe6ad75dda02348bf81917f3b5c06",
+        "version": "4.0.20.3014-ls326"
+      },
+      {
+        "ct": 123,
+        "container": "radarr",
+        "service": "radarr",
+        "image": "lscr.io/linuxserver/radarr@sha256:adb6c09d6b729ea5e642c99cea35af72702ef476bf4763f153299ac5db9f0b4f",
+        "image_id": "sha256:adb6c09d6b729ea5e642c99cea35af72702ef476bf4763f153299ac5db9f0b4f",
+        "version": "6.4.4.10685-ls318"
+      },
+      {
+        "ct": 124,
+        "container": "lidarr",
+        "service": "lidarr",
+        "image": "lscr.io/linuxserver/lidarr@sha256:044d616beb43c5e7810991242c6a9c42b93ff238c8c0850684939634ea751208",
+        "image_id": "sha256:044d616beb43c5e7810991242c6a9c42b93ff238c8c0850684939634ea751208",
+        "version": "3.1.0.4875-ls42"
+      },
+      {
+        "ct": 125,
+        "container": "readarr",
+        "service": "readarr",
+        "image": "ghcr.io/linuxserver/readarr@sha256:baf471a7101b58f361ef960de91cd15f23bae82d0126df6a9edbeaf5c5aa4392",
+        "image_id": "sha256:baf471a7101b58f361ef960de91cd15f23bae82d0126df6a9edbeaf5c5aa4392",
+        "version": "0.4.18.2805-ls157",
+        "note": "Upstream deprecated; existing pinned build retained."
+      },
+      {
+        "ct": 126,
+        "container": "bazarr",
+        "service": "bazarr",
+        "image": "lscr.io/linuxserver/bazarr@sha256:8b30e81c4aec2991f469e78fae8afaa89ecc9b21a80e3897f50427216b55470c",
+        "image_id": "sha256:8b30e81c4aec2991f469e78fae8afaa89ecc9b21a80e3897f50427216b55470c",
+        "version": "v1.6.2-ls366"
+      },
+      {
+        "ct": 127,
+        "container": "prowlarr",
+        "service": "prowlarr",
+        "image": "lscr.io/linuxserver/prowlarr@sha256:f2b26429893d4c4cb71941b7ee50b1bdecd9d5f9f9e02d5410615e9f4f7c8d95",
+        "image_id": "sha256:f2b26429893d4c4cb71941b7ee50b1bdecd9d5f9f9e02d5410615e9f4f7c8d95",
+        "version": "2.6.5.5623-ls162"
+      },
+      {
+        "ct": 128,
+        "container": "flaresolverr",
+        "service": "flaresolverr",
+        "image": "ghcr.io/flaresolverr/flaresolverr@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+        "image_id": "sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+        "version": "v3.5.2"
+      },
+      {
+        "ct": 129,
+        "container": "qbittorrent",
+        "service": "qbittorrent",
+        "image": "lscr.io/linuxserver/qbittorrent@sha256:caab2ebce30799ab342c374ea268fef4ec063a8ec3733a4e5d4a8e856ee32ce8",
+        "image_id": "sha256:caab2ebce30799ab342c374ea268fef4ec063a8ec3733a4e5d4a8e856ee32ce8",
+        "version": "5.2.3_v2.0.15-ls478"
+      },
+      {
+        "ct": 129,
+        "container": "gluetun",
+        "service": "gluetun",
+        "image": "qmcgaw/gluetun@sha256:2733bb22b27e3efa7a9f2cef9057ec12791b8b225793fcd3dbfd0508404dfc25",
+        "image_id": "sha256:2733bb22b27e3efa7a9f2cef9057ec12791b8b225793fcd3dbfd0508404dfc25",
+        "version": "latest"
+      }
+    ]
+  }
+}

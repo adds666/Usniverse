@@ -27,7 +27,7 @@
         docker_compose_app_compose_yml: |
           services:
             bazarr:
-              image: lscr.io/linuxserver/bazarr:latest
+              image: lscr.io/linuxserver/bazarr@sha256:8b30e81c4aec2991f469e78fae8afaa89ecc9b21a80e3897f50427216b55470c
               container_name: bazarr
               network_mode: host
               environment:

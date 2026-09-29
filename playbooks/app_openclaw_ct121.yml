@@ -5,6 +5,8 @@
   gather_facts: true
 
   vars:
+    openclaw_version: "2026.9.6"
+    openclaw_image: "openclaw:{{ openclaw_version }}-local"
     openclaw_dir: /opt/openclaw
     openclaw_src_dir: /opt/openclaw/src
     openclaw_cfg_dir: /opt/openclaw/data/config
@@ -35,15 +37,23 @@
       ansible.builtin.git:
         repo: https://github.com/openclaw/openclaw.git
         dest: "{{ openclaw_src_dir }}"
-        version: main
+        version: "v{{ openclaw_version }}"
         update: true
         force: true
 
+    # Nested Docker on this LXC filesystem does not support pnpm hardlinks.
+    - name: Use copy imports for locked pnpm dependencies
+      ansible.builtin.replace:
+        path: "{{ openclaw_src_dir }}/Dockerfile"
+        regexp: 'pnpm install --frozen-lockfile(?! --config.package-import-method=copy)'
+        replace: 'pnpm install --frozen-lockfile --config.package-import-method=copy'
+
+    # Temporarily allow 16 GiB CT memory for compilation; restore 4 GiB afterwards.
     - name: Build local OpenClaw image
       ansible.builtin.shell: |
         set -e
         cd "{{ openclaw_src_dir }}"
-        docker build -t openclaw:local .
+        docker build -t "{{ openclaw_image }}" .
       args:
         executable: /bin/bash
 
@@ -56,7 +66,7 @@
         content: |
           services:
             openclaw-gateway:
-              image: openclaw:local
+              image: "{{ openclaw_image }}"
               container_name: openclaw-gateway
               environment:
                 HOME: /home/node
@@ -79,7 +89,7 @@
                 start_period: 20s
 
             openclaw-cli:
-              image: openclaw:local
+              image: "{{ openclaw_image }}"
               container_name: openclaw-cli
               network_mode: "service:openclaw-gateway"
               environment:

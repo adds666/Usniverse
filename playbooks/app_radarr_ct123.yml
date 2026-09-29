@@ -27,7 +27,7 @@
         docker_compose_app_compose_yml: |
           services:
             radarr:
-              image: lscr.io/linuxserver/radarr:latest
+              image: lscr.io/linuxserver/radarr@sha256:adb6c09d6b729ea5e642c99cea35af72702ef476bf4763f153299ac5db9f0b4f
               container_name: radarr
               network_mode: host
               environment:

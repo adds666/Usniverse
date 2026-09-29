@@ -26,7 +26,7 @@
         docker_compose_app_compose_yml: |
           services:
             ombi:
-              image: lscr.io/linuxserver/ombi:latest
+              image: lscr.io/linuxserver/ombi@sha256:1394d2346ea40f3dff319a8efdb978aa115bc69cda5ed46ae40bf36ef4600da3
               container_name: ombi
               network_mode: host
               environment:

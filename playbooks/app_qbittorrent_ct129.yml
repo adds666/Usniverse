@@ -63,7 +63,7 @@
         docker_compose_app_compose_yml: |
           services:
             gluetun:
-              image: qmcgaw/gluetun:latest
+              image: qmcgaw/gluetun@sha256:2733bb22b27e3efa7a9f2cef9057ec12791b8b225793fcd3dbfd0508404dfc25
               container_name: gluetun
               cap_add:
                 - NET_ADMIN
@@ -87,7 +87,7 @@
               restart: unless-stopped
 
             qbittorrent:
-              image: lscr.io/linuxserver/qbittorrent:latest
+              image: lscr.io/linuxserver/qbittorrent@sha256:caab2ebce30799ab342c374ea268fef4ec063a8ec3733a4e5d4a8e856ee32ce8
               container_name: qbittorrent
               network_mode: "service:gluetun"
               depends_on:
