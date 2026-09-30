@@ -1,0 +1,224 @@
+---
+- name: Provision dedicated Paperless LXC and private NAS media on MacBookPro
+  hosts: pve
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Require the real NAS mount before creating document storage
+      ansible.builtin.command: findmnt -n -t nfs,nfs4 --target /mnt/pve/Global_Share
+      changed_when: false
+    - name: Create private Paperless NAS directories
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        mode: '0700'
+      loop: ['{{ paperless_nas_root }}', '{{ paperless_nas_root }}/media']
+    - name: Install NAS identity marker
+      ansible.builtin.copy:
+        dest: '{{ paperless_nas_root }}/media/.usniverse-paperless-nas'
+        content: "Usniverse Paperless CT113 media on Synology Global_Share\n"
+        mode: '0600'
+    - name: Create private provisioning directory
+      ansible.builtin.file:
+        path: /root/usniverse-paperless
+        state: directory
+        mode: '0700'
+    - name: Stage workstation public SSH key
+      ansible.builtin.copy:
+        content: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}\n"
+        dest: /root/usniverse-paperless/authorized.pub
+        mode: '0600'
+    - name: Inspect target CT
+      ansible.builtin.command: 'pct config {{ paperless_ct_id }}'
+      register: paperless_existing_ct
+      failed_when: false
+      changed_when: false
+    - name: Refuse to adopt an unrelated CT
+      ansible.builtin.assert:
+        that: "paperless_existing_ct.rc != 0 or 'hostname: paperless' in paperless_existing_ct.stdout"
+    - name: Create unprivileged Paperless CT
+      ansible.builtin.command:
+        argv:
+          - pct
+          - create
+          - '{{ paperless_ct_id | string }}'
+          - local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst
+          - --hostname
+          - paperless
+          - --rootfs
+          - local-lvm:24
+          - --cores
+          - '2'
+          - --memory
+          - '2048'
+          - --swap
+          - '512'
+          - --unprivileged
+          - '1'
+          - --features
+          - nesting=1,keyctl=1,fuse=1
+          - --net0
+          - 'name=eth0,bridge=vmbr0,ip={{ paperless_ct_ip }}/24,gw=192.168.1.254,type=veth'
+          - --nameserver
+          - '1.1.1.1 8.8.8.8'
+          - --onboot
+          - '1'
+          - --startup
+          - order=30
+          - --ssh-public-keys
+          - /root/usniverse-paperless/authorized.pub
+          - --mp0
+          - '{{ paperless_nas_root }}/media,mp=/mnt/paperless-media,backup=0'
+      when: paperless_existing_ct.rc != 0
+    - name: Apply established nested Docker compatibility settings to the new CT
+      ansible.builtin.lineinfile:
+        path: '/etc/pve/lxc/{{ paperless_ct_id }}.conf'
+        line: '{{ item }}'
+      loop:
+        - 'lxc.apparmor.profile: unconfined'
+        - 'lxc.mount.auto: proc:rw sys:rw'
+    - name: Create host boot dependency directory
+      ansible.builtin.file:
+        path: '/etc/systemd/system/pve-container@{{ paperless_ct_id }}.service.d'
+        state: directory
+        mode: '0755'
+    - name: Prevent CT boot without NAS media
+      ansible.builtin.copy:
+        dest: '/etc/systemd/system/pve-container@{{ paperless_ct_id }}.service.d/paperless-nas.conf'
+        mode: '0644'
+        content: |
+          [Unit]
+          RequiresMountsFor={{ paperless_nas_root }}/media
+          [Service]
+          ExecStartPre=/usr/bin/test -f {{ paperless_nas_root }}/media/.usniverse-paperless-nas
+    - name: Reload host units
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+    - name: Read CT runtime state
+      ansible.builtin.command: 'pct status {{ paperless_ct_id }}'
+      register: paperless_ct_status
+      changed_when: false
+    - name: Start Paperless CT
+      ansible.builtin.command: 'pct start {{ paperless_ct_id }}'
+      when: "'running' not in paperless_ct_status.stdout"
+
+- name: Install Paperless application with private user defaults
+  hosts: ct113
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Wait for the new CT SSH service
+      ansible.builtin.wait_for_connection:
+        timeout: 180
+    - name: Gather CT facts
+      ansible.builtin.setup:
+    - name: Require the NAS marker
+      ansible.builtin.command: test -f /mnt/paperless-media/.usniverse-paperless-nas
+      changed_when: false
+  roles:
+    - role: docker_host
+      docker_host_admin_user: ''
+  tasks:
+    - name: Create private application directory
+      ansible.builtin.file:
+        path: /opt/paperless
+        state: directory
+        mode: '0700'
+    - name: Create local directories for the unprivileged application user
+      ansible.builtin.file:
+        path: '/opt/paperless/{{ item }}'
+        state: directory
+        owner: '1000'
+        group: '1000'
+        mode: '0700'
+      loop: [data, export, consume]
+    - name: Install credential and account helpers
+      ansible.builtin.copy:
+        src: '../scripts/paperless/{{ item }}'
+        dest: '/opt/paperless/{{ item }}'
+        mode: '0644'
+      loop: [bootstrap.py, manage_users.py]
+    - name: Generate credentials only if absent
+      ansible.builtin.command: python3 /opt/paperless/bootstrap.py
+      register: paperless_bootstrap
+      changed_when: "'Created' in paperless_bootstrap.stdout"
+      no_log: true
+    - name: Install reviewed Compose definition
+      ansible.builtin.template:
+        src: ../files/paperless/compose.yml.j2
+        dest: /opt/paperless/compose.yml
+        mode: '0600'
+    - name: Install NAS-aware application boot service
+      ansible.builtin.copy:
+        src: ../files/paperless/paperless.service
+        dest: /etc/systemd/system/paperless.service
+        mode: '0644'
+    - name: Pull and reconcile application containers
+      ansible.builtin.command: docker compose up -d --wait --wait-timeout 600
+      args:
+        chdir: /opt/paperless
+      register: paperless_up
+      changed_when: "'Created' in paperless_up.stderr or 'Recreated' in paperless_up.stderr or 'Started' in paperless_up.stderr"
+    - name: Configure restricted member group and initial personal account
+      ansible.builtin.shell: >-
+        docker compose exec -T webserver python manage.py shell -c
+        'exec(open("/opt/usniverse/manage_users.py").read())' < initial-credentials.json
+      args:
+        chdir: /opt/paperless
+      register: paperless_members
+      changed_when: "'\"memberCreated\": true' in paperless_members.stdout"
+      no_log: true
+    - name: Enable NAS-aware application service
+      ansible.builtin.systemd_service:
+        name: paperless.service
+        enabled: true
+        state: started
+        daemon_reload: true
+
+- name: Publish Paperless on existing Usniverse Tailscale frontend
+  hosts: ct110
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install loopback-only Paperless forwarding socket
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-paperless.socket
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Paperless local backend for Tailscale HTTPS
+          [Socket]
+          ListenStream=127.0.0.1:8013
+          [Install]
+          WantedBy=sockets.target
+    - name: Install Paperless backend forwarder
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-paperless.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Paperless backend forwarding
+          Requires=usniverse-paperless.socket
+          After=network-online.target
+          [Service]
+          ExecStart=/usr/lib/systemd/systemd-socket-proxyd {{ paperless_ct_ip }}:8000
+          DynamicUser=yes
+          NoNewPrivileges=yes
+          PrivateTmp=yes
+          Restart=on-failure
+    - name: Enable loopback forwarding
+      ansible.builtin.systemd_service:
+        name: usniverse-paperless.socket
+        enabled: true
+        state: started
+        daemon_reload: true
+    - name: Read existing Tailscale Serve routes
+      ansible.builtin.command: tailscale serve status --json
+      register: paperless_serve
+      changed_when: false
+    - name: Refuse to overwrite another HTTPS service
+      ansible.builtin.assert:
+        that: "'8443' not in paperless_serve.stdout or 'http://127.0.0.1:8013' in paperless_serve.stdout"
+    - name: Enable Paperless HTTPS on the tailnet only
+      ansible.builtin.command: tailscale serve --bg --yes --https=8443 http://127.0.0.1:8013
+      when: "'http://127.0.0.1:8013' not in paperless_serve.stdout"

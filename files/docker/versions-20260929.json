@@ -113,6 +113,30 @@
         "image": "searxng/searxng@sha256:5286edb35782454ab8a102c5eff6b54bff745853191b46aeead95f225aa6dfb6",
         "image_id": "sha256:5286edb35782454ab8a102c5eff6b54bff745853191b46aeead95f225aa6dfb6",
         "version": "2026.9.25-12f8b6515"
+      },
+      {
+        "ct": 113,
+        "container": "paperless-webserver-1",
+        "service": "webserver",
+        "version": "3.2.1",
+        "image": "ghcr.io/paperless-ngx/paperless-ngx@sha256:5fa76604a81df6945086e0837b14b56543d137e8ce4f311cc5d9ebe907e74e79",
+        "image_id": "sha256:5fa76604a81df6945086e0837b14b56543d137e8ce4f311cc5d9ebe907e74e79"
+      },
+      {
+        "ct": 113,
+        "container": "paperless-db-1",
+        "service": "db",
+        "version": "18",
+        "image": "postgres@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722",
+        "image_id": "sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722"
+      },
+      {
+        "ct": 113,
+        "container": "paperless-broker-1",
+        "service": "broker",
+        "version": "9",
+        "image": "valkey/valkey@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11",
+        "image_id": "sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11"
       }
     ],
     "servernode": [

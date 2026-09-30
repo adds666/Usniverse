@@ -74,3 +74,12 @@
         href: "{{ edge_proxy_public_base_url }}:8080"
         siteMonitor: "{{ edge_proxy_public_base_url }}:8080"
         description: Dedicated search engine exposed through edge-proxy
+
+{% if paperless_url is defined %}
+- Documents:
+    - Paperless:
+        icon: paperless-ngx
+        href: "{{ paperless_url }}"
+        siteMonitor: "{{ paperless_url }}/accounts/login/"
+        description: Private document collections — individual logins
+{% endif %}

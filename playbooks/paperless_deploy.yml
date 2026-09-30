@@ -1,0 +1,4 @@
+---
+- import_playbook: paperless.yml
+- import_playbook: paperless_backup.yml
+- import_playbook: paperless_dashboards.yml
