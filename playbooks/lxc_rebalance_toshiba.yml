@@ -1,0 +1,18 @@
+---
+- name: Move one reviewed container to standalone Toshiba with a retained source
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Require an explicit reviewed container
+      ansible.builtin.assert:
+        that:
+          - (ct_id | default('') | string) in ['114', '116', '119']
+        fail_msg: 'Set ct_id to 114, 116 or 119. This is a one-time cutover, not a reconciliation playbook.'
+    - name: Back up, restore and verify the container
+      ansible.builtin.command:
+        argv:
+          - python3
+          - '{{ playbook_dir }}/../scripts/migration/rebalance_toshiba.py'
+          - '{{ ct_id | string }}'
+      changed_when: true

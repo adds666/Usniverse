@@ -66,7 +66,7 @@
           --hostname "{{ item.item.hostname }}" \
           --cores {{ item.item.cores }} \
           --memory {{ item.item.memory }} \
-          --swap 0 \
+          --swap {{ item.item.swap_mb | default(0) }} \
           --rootfs "{{ lxc_rootfs_storage | default('local-lvm') }}:{{ item.item.disk_gb }}" \
           --net0 "name=eth0,bridge={{ lxc_bridge }},ip={{ (item.item.ip is string and '/' in item.item.ip) | ternary(item.item.ip, item.item.ip ~ '/24') }},gw={{ lxc_gw }}" \
           --nameserver "{{ lxc_dns }}" \

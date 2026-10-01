@@ -29,12 +29,13 @@ The inventory uses host aliases for Ansible. Each Proxmox host var can also carr
 | ---: | --- | --- | --- | --- | --- |
 | 110 | edge-proxy | `pve` | `192.168.1.110` | yes | no |
 | 111 | jellyfin | `pve` | `192.168.1.111` | yes | yes |
-| 112 | immich | `pve` | `192.168.1.112` | yes | no |
-| 114 | invidious | `pve` | `192.168.1.114` | yes | no |
-| 116 | n8n | `pve` | `192.168.1.116` | yes | yes |
+| 112 | immich | `pve` | `192.168.1.112` | yes | yes |
+| 113 | paperless | `pve` | `192.168.1.113` | yes | yes |
+| 114 | invidious | `toshiba` | `192.168.1.114` | yes | no |
+| 116 | n8n | `toshiba` | `192.168.1.116` | yes | yes |
 | 117 | synapse | `pve` | `192.168.1.117` | yes | no |
 | 118 | ombi | `pve` | `192.168.1.118` | yes | yes |
-| 119 | searxng | `pve` | `192.168.1.119` | yes | yes |
+| 119 | searxng | `toshiba` | `192.168.1.119` | yes | yes |
 | 120 | comfyui | `servernode` | `192.168.1.120` | yes | yes |
 | 121 | openclaw | `servernode` | `192.168.1.121` | yes | yes |
 | 122 | sonarr | `servernode` | `192.168.1.122` | yes | yes |
@@ -49,7 +50,9 @@ The inventory uses host aliases for Ansible. Each Proxmox host var can also carr
 Notes:
 
 - A separate `7dtd` container exists in Proxmox but is not represented in this repo.
-- The remaining obvious infra-only containers are `ct112` (Immich), `ct114` (Invidious), and `ct117` (Synapse).
+- Invidious and Synapse retain their existing application deployments; their infrastructure is represented here.
+- [Paperless operations and privacy](handovers/PAPERLESS_2026-09-29.md)
+- [UbuntuVM retirement and Toshiba rebalance](handovers/TOSHIBA_REBALANCE_2026-09-30.md)
 
 ## Inventory Model
 
@@ -73,7 +76,10 @@ In normal steady state, `id` and `proxmox_vmid` should match. If they differ dur
 ### Core lifecycle
 
 - `playbooks/lxc_ssh.yml`: create LXCs on Proxmox via `pct` and `pveam`
-- `playbooks/lxc_migrate.yml`: move an LXC between Proxmox nodes with explicit target storage
+- `playbooks/lxc_migrate.yml`: move an LXC between nodes in the same cluster with explicit target storage
+- `playbooks/lxc_rebalance_toshiba.yml`: reviewed backup/restore cutovers between standalone MacBookPro and Toshiba
+- `playbooks/ubuntuvm_retired.yml`: keep the retired VM stopped and excluded from repeated full backups without deleting its disk
+- `playbooks/paperless_deploy.yml`: Paperless, private member collections, NAS media, Tailscale frontend and nightly recovery snapshots
 - `playbooks/ct_bootstrap.yml`: bootstrap brand-new CTs so Ansible can log in
 - `playbooks/base_lxc.yml`: baseline Debian LXC config
 - `playbooks/docker_host.yml`: install Docker on the `docker_lxc` group

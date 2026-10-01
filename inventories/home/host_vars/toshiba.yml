@@ -1,4 +1,8 @@
 proxmox_cluster_node_name: toshiba
 lxc_rootfs_storage: local-lvm
-docker_lxc_ct_ids: []
-nas_lxc_ct_ids: []
+docker_lxc_ct_ids:
+  - 116
+  - 114
+  - 119
+nas_lxc_ct_ids:
+  - 116

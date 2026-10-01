@@ -1,0 +1,70 @@
+---
+- import_playbook: ubuntuvm_retired.yml
+
+- name: Preserve safe startup of the moved n8n NAS bind
+  hosts: toshiba
+  gather_facts: false
+  tasks:
+    - name: Require the target n8n container
+      ansible.builtin.command: test -f /etc/pve/lxc/116.conf
+      changed_when: false
+    - name: Create the container service override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/pve-container@116.service.d
+        state: directory
+        mode: '0755'
+    - name: Require the real NFS share before n8n container startup
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/pve-container@116.service.d/usniverse-nas.conf
+        mode: '0644'
+        content: |
+          [Unit]
+          Wants=network-online.target
+          After=network-online.target
+          RequiresMountsFor=/mnt/pve/Global_Share
+
+          [Service]
+          ExecStartPre=/usr/bin/findmnt -n -t nfs,nfs4 --target /mnt/pve/Global_Share
+      register: n8n_nas_guard
+    - name: Reload service definitions
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: n8n_nas_guard.changed
+
+- name: Reconcile MacBookPro resource limits and retained sources
+  hosts: pve
+  gather_facts: false
+  tasks:
+    - name: Read retained source state
+      ansible.builtin.command: 'pct status {{ item }}'
+      loop: [114, 116, 119]
+      register: source_states
+      changed_when: false
+    - name: Require every source to remain stopped
+      ansible.builtin.assert:
+        that: "item.stdout == 'status: stopped'"
+      loop: '{{ source_states.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+    - name: Read retained source boot configuration
+      ansible.builtin.command: 'pct config {{ item }}'
+      loop: [114, 116, 119]
+      register: source_configs
+      changed_when: false
+    - name: Require automatic startup to remain disabled
+      ansible.builtin.assert:
+        that: "'onboot: 0' in item.stdout_lines"
+      loop: '{{ source_configs.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    - name: Read Jellyfin resource configuration
+      ansible.builtin.command: pct config 111
+      register: jellyfin_resources
+      changed_when: false
+    - name: Verify the reviewed Jellyfin container identity
+      ansible.builtin.assert:
+        that: "'hostname: jellyfin' in jellyfin_resources.stdout_lines"
+    - name: Bound Jellyfin memory and allow limited swapping
+      ansible.builtin.command: pct set 111 --memory 4096 --swap 1024
+      when: "'memory: 4096' not in jellyfin_resources.stdout_lines or 'swap: 1024' not in jellyfin_resources.stdout_lines"

@@ -2,7 +2,7 @@
 
 For the September 29 Docker updates, exact versions and recovery details, see [Docker updates](DOCKER_UPDATES_2026-09-29.md). This supersedes older application version records.
 
-Canonical date: 2026-09-19
+Canonical date: 2026-09-30
 Audience: human operators and future AI agents
 Status: current source of truth for the repo as it exists today
 
@@ -12,7 +12,8 @@ For the completed media cutover, current endpoints, retained backups and follow-
 see [Media migration progress](MEDIA_MIGRATION_2026-09-18_PROGRESS.md).
 For repeatable configuration and recovery boundaries, see [Media automation](MEDIA_AUTOMATION.md).
 Those records supersede older media-state descriptions below. Immich now runs on MacBookPro CT112;
-see [Immich cutover](IMMICH_CUTOVER_2026-09-28.md) for its current state. Dashy now runs alongside Homepage on CT110; see [Dashy cutover](DASHY_CUTOVER_2026-09-28.md). UbuntuVM has no running application containers;
+see [Immich cutover](IMMICH_CUTOVER_2026-09-28.md) for its current state. Dashy now runs alongside Homepage on CT110; see [Dashy cutover](DASHY_CUTOVER_2026-09-28.md). UbuntuVM is now stopped with automatic boot disabled; its NAS disk is retained. See [Toshiba rebalance](TOSHIBA_REBALANCE_2026-09-30.md).
+Paperless is live on MacBookPro CT113: [deployment and recovery](PAPERLESS_2026-09-29.md).
 CT125/126 remain stopped and are excluded from default app deployment.
 
 ## 1. Project Definition
@@ -65,11 +66,12 @@ Important:
 | 110 | edge-proxy | `pve` | 110 | `192.168.1.110` | yes | no | ingress, Tailscale, DNAT, existing Homepage Docker host |
 | 111 | jellyfin | `pve` | 111 | `192.168.1.111` | yes | yes | app playbook plus static compose asset |
 | 112 | immich | `pve` | 112 | `192.168.1.112` | yes | yes | production on standalone MacBookPro; guarded reconciliation playbook |
-| 114 | invidious | `pve` | 114 | `192.168.1.114` | yes | no | service known, playbook absent |
-| 116 | n8n | `pve` | 116 | `192.168.1.116` | yes | yes | playbook writes compose inline |
+| 113 | paperless | `pve` | 113 | `192.168.1.113` | yes | yes | private collections, NAS media, Tailscale HTTPS |
+| 114 | invidious | `toshiba` | 114 | `192.168.1.114` | yes | no | service known, playbook absent |
+| 116 | n8n | `toshiba` | 116 | `192.168.1.116` | yes | yes | playbook writes compose inline |
 | 117 | synapse | `pve` | 117 | `192.168.1.117` | yes | no | service known, playbook absent |
 | 118 | ombi | `pve` | 118 | `192.168.1.118` | yes | yes | dedicated app playbook present |
-| 119 | searxng | `pve` | 119 | `192.168.1.119` | yes | yes | dedicated web search backend for Homepage and AI links |
+| 119 | searxng | `toshiba` | 119 | `192.168.1.119` | yes | yes | dedicated web search backend for Homepage and AI links |
 | 120 | comfyui | `servernode` | 120 | `192.168.1.120` | yes | yes | GPU-enabled workload |
 | 121 | openclaw | `servernode` | 121 | `192.168.1.121` | yes | yes | builds local image from upstream repo |
 | 122 | sonarr | `servernode` | 122 | `192.168.1.122` | yes | yes | part of the media stack |
@@ -404,7 +406,7 @@ Homepage itself is assumed to already exist on CT110. The repo does not currentl
 - Docker-based
 - clones upstream source into the CT
 - builds a local image named `openclaw:local`
-- points at Ollama on `192.168.1.113:11434`
+- the historical Ollama endpoint `192.168.1.113:11434` is obsolete; CT113 now runs Paperless. Do not treat that older endpoint as a live Ollama service.
 - publishes `18789` and `18790`, with `18789` exposed through edge-proxy
 
 ### 10.6 Services without dedicated deployment playbooks
