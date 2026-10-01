@@ -1,5 +1,6 @@
 ---
 - import_playbook: ubuntuvm_retired.yml
+- import_playbook: toshiba_vm_autostart.yml
 
 - name: Preserve safe startup of the moved n8n NAS bind
   hosts: toshiba

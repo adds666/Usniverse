@@ -83,10 +83,10 @@ Final available memory was about 2.8 GiB on MacBookPro and 2.7 GiB on Toshiba.
 This is an observed snapshot, not a load benchmark. MacBookPro retains CT110,
 111, 112, 113, 117 and 118. Toshiba runs CT102 plus 114, 116 and 119.
 
-KaliVM's backup has finished and it is stopped again. Its existing `onboot=1`
-remains unchanged pending the user's preference: starting its configured 4760 MiB
-alongside these services could put Toshiba under memory pressure after a reboot.
-The user was asked whether it should become manual-start only; no answer yet.
+KaliVM's backup finished and it is stopped again. On October 1 the user approved
+manual startup only: both KaliVM and UbuntuVM now have `onboot=0`.
+`playbooks/toshiba_vm_autostart.yml` records this policy and is included in the
+rebalance reconciliation. Kali's disk and backup coverage are retained.
 
 
 ## Jellyfin memory finding and mitigation
@@ -110,3 +110,19 @@ approval review after authentication failed; no credential workaround was used.
 The ordinary unauthenticated health check and resource limits were verified.
 Consequently the strict full-host version checker still returns failure for that
 known historical OOM flag; the checker was not weakened to hide it.
+
+
+## Reboot validation — 2026-10-01
+
+User requested Kali manual startup and a Toshiba reboot to test link negotiation.
+Ansible verified the reboot completed (196 seconds). UbuntuVM and KaliVM both
+remained stopped; CT102, 114, 116 and 119 started automatically. The applications
+needed additional cold-start time on the rotating disk. Final frontend checks
+returned HTTP 200 for Invidious, n8n database readiness and SearXNG. n8n's NAS
+bind was mounted from the expected Synology export. Autostart reconciliation
+passed with zero changes after reboot.
+
+Ethernet remained **100 Mbps full duplex** with autonegotiation enabled. Toshiba
+supports and advertises gigabit, but its link partner advertises only 10/100 Mbps.
+A reboot did not change this. Check the upstream port/intermediate network device
+and cable; no unsupported forced-gigabit setting was applied.
