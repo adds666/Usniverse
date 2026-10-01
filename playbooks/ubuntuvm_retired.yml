@@ -1,0 +1,37 @@
+---
+- name: Keep the retired UbuntuVM disk without automatic startup or repeated full backups
+  hosts: toshiba
+  gather_facts: false
+  tasks:
+    - name: Read retained VM identity and state
+      ansible.builtin.command: '{{ item }}'
+      loop:
+        - qm config 100
+        - qm status 100
+      register: retired_vm
+      changed_when: false
+    - name: Require the reviewed UbuntuVM to be stopped
+      ansible.builtin.assert:
+        that:
+          - "'name: UbuntuVM' in retired_vm.results[0].stdout_lines"
+          - "retired_vm.results[1].stdout == 'status: stopped'"
+        fail_msg: 'This reconciliation does not shut down or delete a running VM.'
+    - name: Disable automatic boot of the retired VM
+      ansible.builtin.command: qm set 100 --onboot 0
+      when: "'onboot: 0' not in retired_vm.results[0].stdout_lines"
+    - name: Read the existing weekly backup job
+      ansible.builtin.command: pvesh get /cluster/backup/backup-62bb29af-a308 --output-format json
+      register: weekly_backup
+      changed_when: false
+    - name: Retain existing exclusions and add the immutable retired VM
+      vars:
+        job: '{{ weekly_backup.stdout | from_json }}'
+        exclusions: "{{ (job.exclude | default('')).replace(';', ',').split(',') | reject('equalto', '') | list }}"
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - set
+          - /cluster/backup/backup-62bb29af-a308
+          - --exclude
+          - "{{ (exclusions + ['100']) | unique | join(',') }}"
+      when: "'100' not in exclusions"

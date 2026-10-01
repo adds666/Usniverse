@@ -1,0 +1,43 @@
+---
+- name: Schedule private Paperless recovery snapshots on the NAS
+  hosts: pve
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install recovery script
+      ansible.builtin.copy:
+        src: ../scripts/paperless/backup.py
+        dest: /usr/local/sbin/usniverse-paperless-backup.py
+        mode: '0700'
+    - name: Install backup service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-paperless-backup.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Paperless database, configuration and document recovery snapshot
+          RequiresMountsFor=/mnt/pve/Global_Share/Paperless
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 /usr/local/sbin/usniverse-paperless-backup.py
+          TimeoutStartSec=infinity
+          UMask=0077
+    - name: Install nightly backup timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/usniverse-paperless-backup.timer
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Paperless nightly recovery snapshot
+          [Timer]
+          OnCalendar=*-*-* 03:15:00 Europe/London
+          Persistent=true
+          Unit=usniverse-paperless-backup.service
+          [Install]
+          WantedBy=timers.target
+    - name: Enable nightly recovery snapshots
+      ansible.builtin.systemd_service:
+        name: usniverse-paperless-backup.timer
+        state: started
+        enabled: true
+        daemon_reload: true

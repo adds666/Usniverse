@@ -1,0 +1,69 @@
+name: paperless
+services:
+  db:
+    image: {{ paperless_postgres_image }}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${PAPERLESS_DBPASS:?private password required}
+    volumes:
+      - ./postgres:/var/lib/postgresql
+    mem_limit: 256m
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U paperless -d paperless']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  broker:
+    image: {{ paperless_broker_image }}
+    restart: unless-stopped
+    volumes:
+      - ./redis:/data
+    mem_limit: 128m
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  webserver:
+    image: {{ paperless_image }}
+    user: '1000:1000'
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+      broker: {condition: service_healthy}
+    ports:
+      - '{{ paperless_ct_ip }}:8000:8000'
+    volumes:
+      - ./data:/usr/src/paperless/data
+      - /mnt/paperless-media:/usr/src/paperless/media
+      - ./export:/usr/src/paperless/export
+      - ./consume:/usr/src/paperless/consume
+      - ./manage_users.py:/opt/usniverse/manage_users.py:ro
+    env_file: .env
+    environment:
+      PAPERLESS_URL: '{{ paperless_url }}'
+      PAPERLESS_APP_TITLE: Usniverse Documents
+      PAPERLESS_DBHOST: db
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_TIME_ZONE: Europe/London
+      PAPERLESS_OCR_LANGUAGE: eng
+      PAPERLESS_TASK_WORKERS: '1'
+      PAPERLESS_THREADS_PER_WORKER: '1'
+      PAPERLESS_WEBSERVER_WORKERS: '1'
+      PAPERLESS_CONSUMER_DISABLE: 'true'
+      PAPERLESS_ACCOUNT_ALLOW_SIGNUPS: 'false'
+      PAPERLESS_SOCIALACCOUNT_ALLOW_SIGNUPS: 'false'
+      PAPERLESS_ACCOUNT_DEFAULT_GROUPS: Usniverse Members
+      PAPERLESS_EMAIL_TASK_CRON: disable
+      PAPERLESS_CONVERT_MEMORY_LIMIT: '64'
+    mem_limit: 1536m
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:8000/accounts/login/]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 180s

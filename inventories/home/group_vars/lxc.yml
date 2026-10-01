@@ -18,9 +18,10 @@ lxc_map:
     node: pve
     hostname: jellyfin
     ip: 192.168.1.111/24
-    cores: 2
-    memory: 2048
-    disk_gb: 16
+    cores: 4
+    memory: 4096
+    swap_mb: 1024
+    disk_gb: 256
     features:
       - nesting=1
       - keyctl=1
@@ -37,7 +38,7 @@ lxc_map:
       - keyctl=1
   - id: 114
     proxmox_vmid: 114
-    node: pve
+    node: toshiba
     hostname: invidious
     ip: 192.168.1.114/24
     cores: 2
@@ -48,7 +49,7 @@ lxc_map:
       - keyctl=1
   - id: 116
     proxmox_vmid: 116
-    node: pve
+    node: toshiba
     hostname: n8n
     ip: 192.168.1.116/24
     cores: 1
@@ -81,7 +82,7 @@ lxc_map:
       - keyctl=1
   - id: 119
     proxmox_vmid: 119
-    node: pve
+    node: toshiba
     hostname: searxng
     ip: 192.168.1.119/24
     cores: 2

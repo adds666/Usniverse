@@ -1,6 +1,6 @@
 ---
-- name: Verify reviewed Docker versions and health on both Proxmox hosts
-  hosts: pve:servernode
+- name: Verify reviewed Docker versions and health on the application Proxmox hosts
+  hosts: pve:servernode:toshiba
   become: true
   gather_facts: false
   tasks:

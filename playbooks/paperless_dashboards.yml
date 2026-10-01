@@ -1,0 +1,20 @@
+---
+- name: Add Paperless to both existing Usniverse frontends
+  hosts: ct110
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install dashboard reconciliation helper
+      ansible.builtin.copy:
+        src: ../scripts/paperless/dashboards.py
+        dest: /usr/local/sbin/usniverse-paperless-dashboards.py
+        mode: '0700'
+    - name: Ensure YAML support
+      ansible.builtin.apt:
+        name: python3-yaml
+        state: present
+    - name: Reconcile only Paperless dashboard entries
+      ansible.builtin.command:
+        argv: [python3, /usr/local/sbin/usniverse-paperless-dashboards.py, '{{ paperless_url }}']
+      register: paperless_dashboards
+      changed_when: "'\"changed\": []' not in paperless_dashboards.stdout"
